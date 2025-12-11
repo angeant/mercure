@@ -2,11 +2,12 @@ import { supabase } from "./supabase";
 import { isSuperAdmin } from "./permissions";
 
 export async function getUserRole(userId: string): Promise<string | null> {
-  // Buscar el perfil del usuario en mercure_profiles
+  // Buscar el rol del usuario en mercure_user_roles
   const { data, error } = await supabase
-    .from('mercure_profiles')
+    .from('mercure_user_roles')
     .select('role')
-    .eq('id', userId)
+    .eq('user_id', userId)
+    .eq('is_active', true)
     .single();
 
   if (error || !data) {
@@ -21,9 +22,6 @@ export async function hasAccess(userId: string, email?: string | null): Promise<
   if (email && isSuperAdmin(email)) {
     return true;
   }
-  
-  // Buscar rol en user_organizations para Mercure
-  const MERCURE_ORG_ID = "620245b9-bac0-434b-b32e-2e07e9428751";
   
   // Primero obtener el ID de usuario de Supabase desde clerk_id
   const { data: userData } = await supabase
@@ -44,14 +42,13 @@ export async function hasAccess(userId: string, email?: string | null): Promise<
     return true;
   }
 
-  // Verificar si tiene rol en la organización Mercure
-  const { data: orgData } = await supabase
-    .from("user_organizations")
+  // Verificar si tiene rol activo en mercure_user_roles
+  const { data: roleData } = await supabase
+    .from("mercure_user_roles")
     .select("role")
     .eq("user_id", supabaseUserId)
-    .eq("organization_id", MERCURE_ORG_ID)
     .eq("is_active", true)
     .limit(1);
 
-  return orgData !== null && orgData.length > 0;
+  return roleData !== null && roleData.length > 0;
 }

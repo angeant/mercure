@@ -18,3 +18,4 @@ export function StatsCard({ label, value, accent = false, subtitle }: StatsCardP
     </div>
   );
 }
+

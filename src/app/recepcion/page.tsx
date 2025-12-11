@@ -11,7 +11,8 @@ async function getRecentShipments() {
   const { data } = await supabase
     .from('mercure_shipments')
     .select(`*, sender:mercure_entities!sender_id(legal_name), recipient:mercure_entities!recipient_id(legal_name)`)
-    .in('status', ['received', 'in_warehouse'])
+    .in('status', ['received', 'in_warehouse', 'ingresada'])
+    .is('trip_id', null)
     .order('created_at', { ascending: false })
     .limit(50);
   return data || [];
@@ -60,23 +61,27 @@ export default async function RecepcionPage() {
                   <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Remito</th>
                   <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Remitente</th>
                   <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Destinatario</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Bultos</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Peso</th>
+                  <th className="px-3 py-2 text-right text-xs font-medium text-neutral-500 uppercase">Bultos</th>
+                  <th className="px-3 py-2 text-right text-xs font-medium text-neutral-500 uppercase">Kg</th>
+                  <th className="px-3 py-2 text-right text-xs font-medium text-neutral-500 uppercase">M³</th>
+                  <th className="px-3 py-2 text-right text-xs font-medium text-neutral-500 uppercase">Valor</th>
                   <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Estado</th>
                   <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Fecha</th>
                 </tr>
               </thead>
               <tbody>
                 {shipments.length === 0 ? (
-                  <tr><td colSpan={7} className="px-3 py-8 text-center text-neutral-400">Sin mercadería pendiente</td></tr>
+                  <tr><td colSpan={9} className="px-3 py-8 text-center text-neutral-400">Sin mercadería pendiente</td></tr>
                 ) : (
                   shipments.map((s: Record<string, unknown>) => (
                     <tr key={s.id as number} className="border-b border-neutral-100 last:border-0 hover:bg-neutral-50">
                       <td className="px-3 py-2 font-medium">{(s.delivery_note_number as string) || `#${s.id}`}</td>
-                      <td className="px-3 py-2 text-neutral-600">{(s.sender as { legal_name: string })?.legal_name || '-'}</td>
-                      <td className="px-3 py-2 text-neutral-600">{(s.recipient as { legal_name: string })?.legal_name || '-'}</td>
-                      <td className="px-3 py-2 text-neutral-600">{(s.package_quantity as number) || '-'}</td>
-                      <td className="px-3 py-2 text-neutral-600">{s.weight_kg ? `${s.weight_kg}kg` : '-'}</td>
+                      <td className="px-3 py-2 text-neutral-600 truncate max-w-[120px]">{(s.sender as { legal_name: string })?.legal_name || '-'}</td>
+                      <td className="px-3 py-2 text-neutral-600 truncate max-w-[120px]">{(s.recipient as { legal_name: string })?.legal_name || '-'}</td>
+                      <td className="px-3 py-2 text-right text-neutral-600">{(s.package_quantity as number) || '-'}</td>
+                      <td className="px-3 py-2 text-right text-neutral-600">{s.weight_kg ? `${s.weight_kg}` : '-'}</td>
+                      <td className="px-3 py-2 text-right text-neutral-600">{s.volume_m3 ? `${s.volume_m3}` : '-'}</td>
+                      <td className="px-3 py-2 text-right text-neutral-600">{s.declared_value ? `$${(s.declared_value as number).toLocaleString('es-AR')}` : '-'}</td>
                       <td className="px-3 py-2">
                         <Badge variant={getStatusVariant(s.status as string)}>
                           {SHIPMENT_STATUS_LABELS[(s.status as keyof typeof SHIPMENT_STATUS_LABELS)] || s.status as string}

@@ -40,30 +40,54 @@ export async function assignRole(formData: FormData) {
   }
 
   try {
-    // Verificar si ya existe un registro para este usuario en Mercure
-    const { data: existing } = await supabaseAdmin
+    // 1. Asegurar que el usuario tenga membresía en la org con rol genérico "member"
+    const { data: existingOrg } = await supabaseAdmin
       .from("user_organizations")
       .select("id")
       .eq("user_id", targetUserId)
       .eq("organization_id", MERCURE_ORG_ID)
       .limit(1);
 
-    if (existing && existing.length > 0) {
-      // Actualizar rol existente
-      const { error } = await supabaseAdmin
+    if (existingOrg && existingOrg.length > 0) {
+      // Actualizar para asegurar que esté activo
+      await supabaseAdmin
         .from("user_organizations")
-        .update({ role, is_active: true })
+        .update({ role: "member", is_active: true })
         .eq("user_id", targetUserId)
         .eq("organization_id", MERCURE_ORG_ID);
-
-      if (error) throw error;
     } else {
-      // Insertar nuevo registro
-      const { error } = await supabaseAdmin
+      // Insertar con rol genérico "member"
+      await supabaseAdmin
         .from("user_organizations")
         .insert({ 
           user_id: targetUserId, 
           organization_id: MERCURE_ORG_ID,
+          role: "member",
+          is_active: true
+        });
+    }
+
+    // 2. Guardar el rol específico de Mercure en mercure_user_roles
+    const { data: existingRole } = await supabaseAdmin
+      .from("mercure_user_roles")
+      .select("id")
+      .eq("user_id", targetUserId)
+      .limit(1);
+
+    if (existingRole && existingRole.length > 0) {
+      // Actualizar rol existente
+      const { error } = await supabaseAdmin
+        .from("mercure_user_roles")
+        .update({ role, is_active: true })
+        .eq("user_id", targetUserId);
+
+      if (error) throw error;
+    } else {
+      // Insertar nuevo rol
+      const { error } = await supabaseAdmin
+        .from("mercure_user_roles")
+        .insert({ 
+          user_id: targetUserId,
           role,
           is_active: true
         });
@@ -110,12 +134,18 @@ export async function removeRole(formData: FormData) {
   }
 
   try {
-    // Desactivar el usuario en Mercure (no borrar para mantener historial)
-    const { error } = await supabaseAdmin
+    // 1. Desactivar el usuario en user_organizations
+    await supabaseAdmin
       .from("user_organizations")
       .update({ is_active: false })
       .eq("user_id", targetUserId)
       .eq("organization_id", MERCURE_ORG_ID);
+
+    // 2. Desactivar el rol en mercure_user_roles
+    const { error } = await supabaseAdmin
+      .from("mercure_user_roles")
+      .update({ is_active: false })
+      .eq("user_id", targetUserId);
 
     if (error) throw error;
 

@@ -1,3 +1,4 @@
+import * as React from "react";
 import { cn } from "@/lib/utils";
 
 interface BadgeProps {
@@ -6,7 +7,7 @@ interface BadgeProps {
   className?: string;
 }
 
-const variantStyles = {
+const variantStyles: Record<string, string> = {
   default: "bg-neutral-100 text-neutral-600",
   success: "bg-green-50 text-green-700",
   warning: "bg-amber-50 text-amber-700",
@@ -14,7 +15,7 @@ const variantStyles = {
   info: "bg-blue-50 text-blue-700",
 };
 
-export function Badge({ children, variant = "default", className }: BadgeProps) {
+const Badge = ({ children, variant = "default", className }: BadgeProps) => {
   return (
     <span
       className={cn(
@@ -26,4 +27,6 @@ export function Badge({ children, variant = "default", className }: BadgeProps) 
       {children}
     </span>
   );
-}
+};
+
+export { Badge };

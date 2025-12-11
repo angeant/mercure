@@ -18,7 +18,7 @@ export function UserMenu() {
   const { user } = useUser();
   const { signOut } = useClerk();
   const router = useRouter();
-  const { organization } = useUserProfile();
+  const { mercureRole } = useUserProfile();
 
   if (!user) return null;
 
@@ -28,7 +28,7 @@ export function UserMenu() {
 
   const userEmail = user.emailAddresses[0]?.emailAddress;
   const displayName = user.fullName || userEmail?.split("@")[0] || "Usuario";
-  const userRole = organization?.role;
+  const userRole = mercureRole?.role;
   const roleLabel = userRole 
     ? ROLE_LABELS[userRole] || userRole 
     : null;

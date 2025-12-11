@@ -4,16 +4,13 @@ import { useUser } from "@clerk/nextjs";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
-// ID de la organización Mercure SRL
-const MERCURE_ORG_ID = "620245b9-bac0-434b-b32e-2e07e9428751";
-
-interface UserOrganization {
+interface MercureUserRole {
   user_id: string;
   role: string;
 }
 
 interface UserProfileData {
-  organization: UserOrganization | null;
+  mercureRole: MercureUserRole | null;
   isLoading: boolean;
   error: Error | null;
 }
@@ -21,7 +18,7 @@ interface UserProfileData {
 export function useUserProfile(): UserProfileData {
   const { user: clerkUser, isLoaded } = useUser();
   const [data, setData] = useState<UserProfileData>({
-    organization: null,
+    mercureRole: null,
     isLoading: true,
     error: null,
   });
@@ -43,41 +40,40 @@ export function useUserProfile(): UserProfileData {
 
         if (userError) {
           console.error("Error fetching user:", userError);
-          setData({ organization: null, isLoading: false, error: null });
+          setData({ mercureRole: null, isLoading: false, error: null });
           return;
         }
 
         const userData = usersData?.[0];
         if (!userData) {
           // Usuario no existe en la tabla users - no es error, solo no tiene perfil
-          setData({ organization: null, isLoading: false, error: null });
+          setData({ mercureRole: null, isLoading: false, error: null });
           return;
         }
 
-        // Buscar el rol en user_organizations para Mercure
-        const { data: orgsData, error: orgError } = await supabase
-          .from("user_organizations")
+        // Buscar el rol en mercure_user_roles
+        const { data: rolesData, error: roleError } = await supabase
+          .from("mercure_user_roles")
           .select("user_id, role")
           .eq("user_id", userData.id)
-          .eq("organization_id", MERCURE_ORG_ID)
           .eq("is_active", true)
           .limit(1);
 
-        if (orgError) {
-          console.error("Error fetching org:", orgError);
-          setData({ organization: null, isLoading: false, error: null });
+        if (roleError) {
+          console.error("Error fetching mercure role:", roleError);
+          setData({ mercureRole: null, isLoading: false, error: null });
           return;
         }
 
         setData({
-          organization: orgsData?.[0] || null,
+          mercureRole: rolesData?.[0] || null,
           isLoading: false,
           error: null,
         });
       } catch (error) {
         console.error("Error in useUserProfile:", error);
         setData({
-          organization: null,
+          mercureRole: null,
           isLoading: false,
           error: null,
         });

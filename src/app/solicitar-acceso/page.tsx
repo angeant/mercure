@@ -21,3 +21,4 @@ export default async function SolicitarAccesoPage() {
 
   return <SolicitarAccesoClient email={email} />;
 }
+

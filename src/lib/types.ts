@@ -48,16 +48,20 @@ export interface Trip {
 export interface Shipment {
   id: number;
   delivery_note_number: string | null;
-  status: 'received' | 'in_warehouse' | 'loaded' | 'in_transit' | 'delivered' | 'cancelled';
+  status: 'ingresada' | 'consolidada' | 'en_transito' | 'en_descarga' | 'disponible' | 'en_reparto' | 'entregada' | 'no_entregada' | 'rechazada' | 'rendida' | 'facturada' | 'received' | 'in_warehouse' | 'loaded' | 'in_transit' | 'delivered' | 'cancelled';
   sender_id: number;
   recipient_id: number;
   trip_id: number | null;
   load_description: string | null;
   package_quantity: number | null;
   weight_kg: number | null;
+  volume_m3: number | null;
   declared_value: number | null;
+  paid_by: 'origen' | 'destino' | null;
+  payment_terms: 'contado' | 'cuenta_corriente' | null;
   notes: string | null;
   quotation_id: string | null;
+  recipient_address: string | null;
   created_at: string;
   updated_at: string;
   // Relaciones
@@ -142,11 +146,24 @@ export interface MercureEvent {
 
 // Status labels para UI
 export const SHIPMENT_STATUS_LABELS: Record<Shipment['status'], string> = {
-  received: 'Recibido',
-  in_warehouse: 'En depósito',
-  loaded: 'Cargado',
+  // Pipeline nuevo
+  ingresada: 'Ingresada',
+  consolidada: 'Consolidada',
+  en_transito: 'En tránsito',
+  en_descarga: 'En descarga',
+  disponible: 'Disponible',
+  en_reparto: 'En reparto',
+  entregada: 'Entregada',
+  no_entregada: 'No entregada',
+  rechazada: 'Rechazada',
+  rendida: 'Rendida',
+  facturada: 'Facturada',
+  // Legacy
+  received: 'Ingresada',
+  in_warehouse: 'Ingresada',
+  loaded: 'Consolidada',
   in_transit: 'En tránsito',
-  delivered: 'Entregado',
+  delivered: 'Entregada',
   cancelled: 'Cancelado',
 };
 

@@ -86,3 +86,4 @@ export default async function EntidadesPage() {
     </div>
   );
 }
+

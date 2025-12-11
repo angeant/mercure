@@ -16,44 +16,40 @@ interface UserDisplay {
   is_kalia: boolean;
 }
 
-// ID de la organización Mercure SRL
-const MERCURE_ORG_ID = "620245b9-bac0-434b-b32e-2e07e9428751";
-
-// Obtener usuarios de Mercure (los que tienen rol asignado en user_organizations para Mercure)
+// Obtener usuarios de Mercure (los que tienen rol asignado en mercure_user_roles)
 async function getMercureUsers(): Promise<UserDisplay[]> {
   try {
-    // Traer usuarios con rol asignado para la organización Mercure
-    const { data: userOrgs, error: orgError } = await supabase
-      .from("user_organizations")
+    // Traer usuarios con rol asignado en mercure_user_roles
+    const { data: userRoles, error: rolesError } = await supabase
+      .from("mercure_user_roles")
       .select("user_id, role")
-      .eq("organization_id", MERCURE_ORG_ID)
       .eq("is_active", true);
 
-    if (orgError) {
-      console.error("Error fetching user_organizations:", orgError);
+    if (rolesError) {
+      console.error("Error fetching mercure_user_roles:", rolesError);
       return [];
     }
 
-    if (!userOrgs || userOrgs.length === 0) {
+    if (!userRoles || userRoles.length === 0) {
       return [];
     }
 
     // Traer datos de usuarios
-    const userIds = userOrgs.map(o => o.user_id);
+    const userIds = userRoles.map(r => r.user_id);
     const { data: usersData } = await supabase
       .from("users")
       .select("id, email, name, avatar_url, created_at")
       .in("id", userIds);
 
-    const users: UserDisplay[] = userOrgs.map(org => {
-      const userData = usersData?.find(u => u.id === org.user_id);
+    const users: UserDisplay[] = userRoles.map(userRole => {
+      const userData = usersData?.find(u => u.id === userRole.user_id);
       const email = userData?.email || "";
       return {
-        id: org.user_id,
+        id: userRole.user_id,
         email: email,
         full_name: userData?.name || null,
         image_url: userData?.avatar_url || null,
-        role: org.role,
+        role: userRole.role,
         created_at: userData?.created_at || new Date().toISOString(),
         is_kalia: email.toLowerCase().endsWith(`@${SUPER_ADMIN_DOMAIN}`),
       };
@@ -90,23 +86,23 @@ async function getAllUsers(): Promise<UserDisplay[]> {
       return [];
     }
 
-    // Traer roles desde user_organizations (solo de Mercure)
+    // Traer roles desde mercure_user_roles
     const userIds = usersData.map(u => u.id);
-    const { data: userOrgs } = await supabase
-      .from("user_organizations")
+    const { data: userRoles } = await supabase
+      .from("mercure_user_roles")
       .select("user_id, role")
-      .eq("organization_id", MERCURE_ORG_ID)
+      .eq("is_active", true)
       .in("user_id", userIds);
 
     const users: UserDisplay[] = usersData.map(u => {
       const email = u.email || "";
-      const org = userOrgs?.find(o => o.user_id === u.id);
+      const userRole = userRoles?.find(r => r.user_id === u.id);
       return {
         id: u.id,
         email: email,
         full_name: u.name || null,
         image_url: u.avatar_url || null,
-        role: org?.role || null,
+        role: userRole?.role || null,
         created_at: u.created_at || new Date().toISOString(),
         is_kalia: email.toLowerCase().endsWith(`@${SUPER_ADMIN_DOMAIN}`),
       };
@@ -180,16 +176,15 @@ export default async function ConfiguracionPage() {
       redirect("/");
     }
 
-    // Verificar permisos desde user_organizations
-    const { data: currentUserOrg } = await supabase
-      .from("user_organizations")
+    // Verificar permisos desde mercure_user_roles
+    const { data: currentUserRole } = await supabase
+      .from("mercure_user_roles")
       .select("role")
       .eq("user_id", supabaseUserId)
-      .eq("organization_id", MERCURE_ORG_ID)
       .eq("is_active", true)
       .limit(1);
 
-    const currentRole = currentUserOrg?.[0]?.role;
+    const currentRole = currentUserRole?.[0]?.role;
 
     // Solo admins y super admins pueden acceder
     if (!canAccessConfig(currentRole, userEmail)) {

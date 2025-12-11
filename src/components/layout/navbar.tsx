@@ -20,8 +20,11 @@ const menuAreas = [
     items: [
       { href: "/", label: "Dashboard", description: "Vista general" },
       { href: "/recepcion", label: "Recepción", description: "Ingreso de mercadería" },
-      { href: "/envios", label: "Envíos", description: "Remitos y seguimiento" },
-      { href: "/viajes", label: "Viajes", description: "Planificación y despacho" },
+      { href: "/consolidacion", label: "Consolidación", description: "Asignar a viajes" },
+      { href: "/envios", label: "Envíos", description: "En tránsito" },
+      { href: "/arribo", label: "Arribo", description: "Descarga y disponibles" },
+      { href: "/reparto", label: "Reparto", description: "Última milla" },
+      { href: "/viajes", label: "Viajes", description: "Planificación" },
       { href: "/vehiculos", label: "Vehículos", description: "Flota de transporte" },
       { href: "/procesos", label: "Procesos", description: "Documentación operativa" },
     ],

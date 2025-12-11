@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
+import { TariffTable } from "./tariff-table";
 
 async function getTariffs() {
   const { data } = await supabase
@@ -65,52 +66,11 @@ export default async function TarifasPage() {
 
           {/* Tarifas */}
           <div className="mb-6">
-            <h2 className="text-xs font-medium text-neutral-500 uppercase tracking-wide mb-2">Tarifas Vigentes</h2>
-            <div className="border border-neutral-200 rounded overflow-hidden">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-neutral-50 border-b border-neutral-200">
-                    <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Origen</th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Destino</th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Tipo</th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Peso</th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Precio</th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">$/kg</th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Vigencia</th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Estado</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {tariffs.length === 0 ? (
-                    <tr><td colSpan={8} className="px-3 py-6 text-center text-neutral-400">Sin tarifas</td></tr>
-                  ) : (
-                    tariffs.map((t: Record<string, unknown>) => {
-                      const isActive = !t.valid_until || new Date(t.valid_until as string) >= new Date();
-                      return (
-                        <tr key={t.id as number} className="border-b border-neutral-100 last:border-0 hover:bg-neutral-50">
-                          <td className="px-3 py-2 font-medium">{t.origin as string}</td>
-                          <td className="px-3 py-2">{t.destination as string}</td>
-                          <td className="px-3 py-2">
-                            <Badge variant={t.tariff_type === 'express' ? 'warning' : 'default'}>
-                              {t.tariff_type as string || 'std'}
-                            </Badge>
-                          </td>
-                          <td className="px-3 py-2 text-neutral-600 text-xs">
-                            {String(t.weight_from_kg || '0')}-{String(t.weight_to_kg || '∞')}kg
-                          </td>
-                          <td className="px-3 py-2 font-medium">${Number(t.price).toLocaleString('es-AR')}</td>
-                          <td className="px-3 py-2 text-neutral-600">{t.price_per_kg ? `$${t.price_per_kg}` : '-'}</td>
-                          <td className="px-3 py-2 text-neutral-400 text-xs">{new Date(t.valid_from as string).toLocaleDateString('es-AR')}</td>
-                          <td className="px-3 py-2">
-                            <Badge variant={isActive ? 'success' : 'error'}>{isActive ? 'Vigente' : 'Vencida'}</Badge>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
+            <h2 className="text-xs font-medium text-neutral-500 uppercase tracking-wide mb-2">
+              Tarifas Vigentes
+              <span className="ml-2 text-neutral-400 font-normal normal-case">(click en precio para editar)</span>
+            </h2>
+            <TariffTable initialTariffs={tariffs as any} />
           </div>
 
           {/* Seguro y Cotizaciones en dos columnas */}
