@@ -24,6 +24,7 @@ export default function SignUpPage() {
         </div>
 
         <SignUp.Root>
+          {/* Step 1: Solo email */}
           <SignUp.Step name="start">
             <div className="space-y-5">
               <Clerk.Field name="emailAddress">
@@ -42,25 +43,9 @@ export default function SignUpPage() {
                 <Clerk.FieldError className="text-red-500 text-xs mt-1" />
               </Clerk.Field>
 
-              <Clerk.Field name="password">
-                <Clerk.Label asChild>
-                  <Label className="text-neutral-600 text-sm font-medium">
-                    Contraseña
-                  </Label>
-                </Clerk.Label>
-                <Clerk.Input asChild>
-                  <Input
-                    type="password"
-                    placeholder="••••••••"
-                    className="mt-1.5 h-11 border-neutral-200 focus:border-neutral-400 focus:ring-0"
-                  />
-                </Clerk.Input>
-                <Clerk.FieldError className="text-red-500 text-xs mt-1" />
-              </Clerk.Field>
-
               <SignUp.Action submit asChild>
                 <Button className="w-full h-11 bg-neutral-900 hover:bg-neutral-800 text-white font-medium">
-                  Crear cuenta
+                  Continuar
                 </Button>
               </SignUp.Action>
 
@@ -68,12 +53,19 @@ export default function SignUpPage() {
             </div>
           </SignUp.Step>
 
+          {/* Step 2: Verificación con código OTP */}
           <SignUp.Step name="verifications">
             <SignUp.Strategy name="email_code">
               <div className="space-y-5">
-                <p className="text-neutral-600 text-sm text-center">
-                  Ingresá el código enviado a tu email
-                </p>
+                <div className="text-center">
+                  <p className="text-neutral-900 font-medium">
+                    Revisá tu email
+                  </p>
+                  <p className="text-neutral-500 text-sm mt-1">
+                    Te enviamos un código de verificación
+                  </p>
+                </div>
+
                 <Clerk.Field name="code">
                   <Clerk.Label asChild>
                     <Label className="text-neutral-600 text-sm font-medium">
@@ -83,7 +75,7 @@ export default function SignUpPage() {
                   <Clerk.Input asChild>
                     <Input
                       placeholder="123456"
-                      className="mt-1.5 h-11 border-neutral-200 focus:border-neutral-400 focus:ring-0 text-center tracking-widest"
+                      className="mt-1.5 h-11 border-neutral-200 focus:border-neutral-400 focus:ring-0 text-center tracking-widest text-lg"
                     />
                   </Clerk.Input>
                   <Clerk.FieldError className="text-red-500 text-xs mt-1" />
@@ -94,12 +86,30 @@ export default function SignUpPage() {
                     Verificar
                   </Button>
                 </SignUp.Action>
+
+                <SignUp.Action resend asChild>
+                  <button
+                    type="button"
+                    className="w-full text-sm text-neutral-500 hover:text-neutral-900 transition-colors"
+                  >
+                    ¿No recibiste el código? Reenviar
+                  </button>
+                </SignUp.Action>
+
+                <Clerk.GlobalError className="text-red-500 text-sm text-center" />
               </div>
             </SignUp.Strategy>
           </SignUp.Step>
 
+          {/* Step 3: Completar datos */}
           <SignUp.Step name="continue">
             <div className="space-y-5">
+              <div className="text-center mb-2">
+                <p className="text-neutral-900 font-medium">
+                  Completá tus datos
+                </p>
+              </div>
+
               <Clerk.Field name="firstName">
                 <Clerk.Label asChild>
                   <Label className="text-neutral-600 text-sm font-medium">
@@ -132,9 +142,11 @@ export default function SignUpPage() {
 
               <SignUp.Action submit asChild>
                 <Button className="w-full h-11 bg-neutral-900 hover:bg-neutral-800 text-white font-medium">
-                  Continuar
+                  Crear cuenta
                 </Button>
               </SignUp.Action>
+
+              <Clerk.GlobalError className="text-red-500 text-sm text-center" />
             </div>
           </SignUp.Step>
         </SignUp.Root>
