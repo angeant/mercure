@@ -14,7 +14,7 @@ export default function SignUpPage() {
       <div className="w-full max-w-sm px-6">
         <div className="flex flex-col items-center mb-10">
           <Image
-            src="/logo_remito2.png"
+            src="/mercure_logos/logo_remito2.png"
             alt="Mercure"
             width={280}
             height={80}
