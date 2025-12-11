@@ -1,65 +1,145 @@
-import Image from "next/image";
+import { auth, currentUser } from "@clerk/nextjs/server";
+import { redirect } from "next/navigation";
+import { Navbar } from "@/components/layout/navbar";
 
-export default function Home() {
+export default async function Home() {
+  const { userId } = await auth();
+  
+  if (!userId) {
+    redirect("/sign-in");
+  }
+
+  const user = await currentUser();
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+    <div className="min-h-screen bg-neutral-50">
+      <Navbar />
+      
+      <main className="pt-14">
+        <div className="px-6 py-12">
+          {/* Header */}
+          <div className="max-w-6xl mx-auto">
+            <h1 className="text-2xl font-semibold tracking-tight text-neutral-900">
+              Bienvenido, {user?.firstName || "Usuario"}
+            </h1>
+            <p className="mt-1 text-neutral-500">
+              Sistema de gestión logística
+            </p>
+          </div>
+
+          {/* Stats Grid */}
+          <div className="max-w-6xl mx-auto mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <StatCard 
+              label="Envíos activos"
+              value="24"
+              accent
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+            <StatCard 
+              label="Completados hoy"
+              value="12"
+            />
+            <StatCard 
+              label="Pendientes"
+              value="8"
+            />
+          </div>
+
+          {/* Quick Actions */}
+          <div className="max-w-6xl mx-auto mt-12">
+            <h2 className="text-sm font-medium text-neutral-500 uppercase tracking-wide mb-4">
+              Acciones rápidas
+            </h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <ActionCard label="Nuevo envío" href="/envios/nuevo" />
+              <ActionCard label="Ver remitos" href="/remitos" />
+              <ActionCard label="Clientes" href="/clientes" />
+              <ActionCard label="Reportes" href="/reportes" />
+            </div>
+          </div>
+
+          {/* Recent Activity */}
+          <div className="max-w-6xl mx-auto mt-12">
+            <h2 className="text-sm font-medium text-neutral-500 uppercase tracking-wide mb-4">
+              Actividad reciente
+            </h2>
+            <div className="bg-white rounded-lg border border-neutral-200">
+              <ActivityItem 
+                title="Envío #2847 entregado"
+                subtitle="Cliente: Distribuidora Norte"
+                time="Hace 15 min"
+              />
+              <ActivityItem 
+                title="Nuevo remito generado"
+                subtitle="Remito #R-1293"
+                time="Hace 32 min"
+              />
+              <ActivityItem 
+                title="Envío #2846 en tránsito"
+                subtitle="Destino: CABA"
+                time="Hace 1 hora"
+              />
+              <ActivityItem 
+                title="Cliente registrado"
+                subtitle="Logística Express SA"
+                time="Hace 2 horas"
+                isLast
+              />
+            </div>
+          </div>
         </div>
       </main>
+    </div>
+  );
+}
+
+function StatCard({ 
+  label, 
+  value, 
+  accent = false 
+}: { 
+  label: string; 
+  value: string; 
+  accent?: boolean;
+}) {
+  return (
+    <div className="bg-white rounded-lg border border-neutral-200 p-6">
+      <p className="text-sm text-neutral-500">{label}</p>
+      <p className={`text-3xl font-semibold mt-1 ${accent ? "text-orange-500" : "text-neutral-900"}`}>
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function ActionCard({ label, href }: { label: string; href: string }) {
+  return (
+    <a 
+      href={href}
+      className="bg-white rounded-lg border border-neutral-200 p-4 text-center text-sm font-medium text-neutral-700 hover:border-neutral-400 transition-colors"
+    >
+      {label}
+    </a>
+  );
+}
+
+function ActivityItem({ 
+  title, 
+  subtitle, 
+  time,
+  isLast = false 
+}: { 
+  title: string; 
+  subtitle: string; 
+  time: string;
+  isLast?: boolean;
+}) {
+  return (
+    <div className={`px-4 py-3 flex items-center justify-between ${!isLast ? "border-b border-neutral-100" : ""}`}>
+      <div>
+        <p className="text-sm font-medium text-neutral-900">{title}</p>
+        <p className="text-sm text-neutral-500">{subtitle}</p>
+      </div>
+      <span className="text-xs text-neutral-400">{time}</span>
     </div>
   );
 }

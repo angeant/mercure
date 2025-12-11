@@ -1,0 +1,69 @@
+# Kalia Design System - Mercure
+
+## Estética
+Ultra minimalista. Limpio. Profesional. Sin ruido visual.
+
+## Colores
+
+### Color Accent (Cliente: Mercure)
+- Primary: `#F97316` (orange-500) - Usar con moderación, solo para CTAs y elementos destacados
+- Primary hover: `#EA580C` (orange-600)
+
+### Escala de grises (Base)
+- Background: `#FAFAFA` (neutral-50)
+- Surface: `#FFFFFF` (white)
+- Border: `#E5E5E5` (neutral-200)
+- Border hover: `#A3A3A3` (neutral-400)
+- Text primary: `#171717` (neutral-900)
+- Text secondary: `#737373` (neutral-500)
+- Text muted: `#A3A3A3` (neutral-400)
+
+### Navbar
+- Background: `#000000` (black)
+- Text: `#FFFFFF` (white)
+- Logo: Usar versión blanca de Kalia
+
+## Tipografía
+- Font: Geist Sans (ya configurada)
+- Headings: font-semibold, tracking-tight
+- Body: font-normal
+- Labels: text-sm, font-medium, text-neutral-600
+
+## Componentes
+
+### Inputs
+```
+h-11 border-neutral-200 focus:border-neutral-400 focus:ring-0
+```
+
+### Buttons
+- Primary: `bg-neutral-900 hover:bg-neutral-800 text-white`
+- Accent: `bg-orange-500 hover:bg-orange-600 text-white`
+- Secondary: `border border-neutral-200 hover:bg-neutral-50`
+
+### Cards
+- Background: white
+- Border: `border-neutral-200`
+- Shadow: ninguna o muy sutil (`shadow-sm`)
+- Radius: `rounded-lg`
+
+### Navbar
+- Height: `h-14`
+- Background: `bg-black`
+- Logo: 20-24px height
+- Padding: `px-6`
+
+## Espaciado
+- Secciones: `py-8` o `py-12`
+- Entre elementos: `space-y-4` o `space-y-6`
+- Padding containers: `px-6`
+
+## Reglas
+1. Solo usar el color accent (naranja) para 1-2 elementos por página
+2. Resto de la UI en escala de grises
+3. Evitar sombras pesadas
+4. Evitar bordes gruesos
+5. Transiciones suaves: `transition-colors`
+6. Sin decoraciones innecesarias
+7. Mucho espacio en blanco
+
