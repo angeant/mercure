@@ -304,13 +304,6 @@ export default async function ConfiguracionPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {isSuper && (
-                    <tr className="border-b border-neutral-100">
-                      <td className="px-3 py-2 font-medium">Super Admin</td>
-                      <td className="px-3 py-2 text-neutral-600">Acceso total al sistema (Kalia)</td>
-                      <td className="px-3 py-2"><Badge variant="success">Todo</Badge></td>
-                    </tr>
-                  )}
                   <tr className="border-b border-neutral-100">
                     <td className="px-3 py-2 font-medium">Administrador</td>
                     <td className="px-3 py-2 text-neutral-600">Gestión completa de Mercure</td>
