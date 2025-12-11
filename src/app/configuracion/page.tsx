@@ -1,10 +1,9 @@
-import { auth, currentUser, clerkClient } from "@clerk/nextjs/server";
+import { auth, currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { Navbar } from "@/components/layout/navbar";
 import { supabase } from "@/lib/supabase";
 import { canAccessConfig, isSuperAdmin, ROLES, SUPER_ADMIN_DOMAIN } from "@/lib/permissions";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { RoleForm } from "./role-form";
 
 interface UserDisplay {
@@ -20,39 +19,38 @@ interface UserDisplay {
 // Obtener usuarios de la organización Mercure (solo los que tienen rol asignado o son @kalia.app)
 async function getMercureUsers(): Promise<UserDisplay[]> {
   try {
-    const client = await clerkClient();
-    
-    // 1. Traer roles desde Supabase primero
+    // 1. Traer usuarios con roles asignados desde Supabase
     const { data: orgRoles } = await supabase
       .from("user_organizations")
       .select("user_id, role");
 
-    const usersWithRoles = new Set(orgRoles?.map(o => o.user_id) || []);
+    if (!orgRoles || orgRoles.length === 0) {
+      return [];
+    }
 
-    // 2. Traer todos los usuarios de Clerk
-    const clerkUsers = await client.users.getUserList({ limit: 100 });
+    // 2. Traer datos de usuarios desde la tabla users
+    const userIds = orgRoles.map(o => o.user_id);
+    const { data: supabaseUsers } = await supabase
+      .from("users")
+      .select("id, email, full_name, avatar_url, created_at")
+      .in("id", userIds);
+
     const users: UserDisplay[] = [];
 
-    for (const u of clerkUsers.data) {
-      const email = u.emailAddresses[0]?.emailAddress || "";
+    for (const orgRole of orgRoles) {
+      const userData = supabaseUsers?.find(u => u.id === orgRole.user_id);
+      const email = userData?.email || "";
       const isKalia = email.toLowerCase().endsWith(`@${SUPER_ADMIN_DOMAIN}`);
-      const hasRole = usersWithRoles.has(u.id);
 
-      // Solo incluir si es @kalia.app O tiene rol asignado
-      if (isKalia || hasRole) {
-        const orgRole = orgRoles?.find(o => o.user_id === u.id);
-        users.push({
-          id: u.id,
-          email: email,
-          full_name: u.firstName && u.lastName 
-            ? `${u.firstName} ${u.lastName}` 
-            : u.firstName || null,
-          image_url: u.imageUrl,
-          role: orgRole?.role || null,
-          created_at: new Date(u.createdAt).toISOString(),
-          is_kalia: isKalia,
-        });
-      }
+      users.push({
+        id: orgRole.user_id,
+        email: email,
+        full_name: userData?.full_name || null,
+        image_url: userData?.avatar_url || null,
+        role: orgRole.role,
+        created_at: userData?.created_at || new Date().toISOString(),
+        is_kalia: isKalia,
+      });
     }
 
     // Ordenar: primero @kalia.app, luego por nombre
@@ -68,41 +66,52 @@ async function getMercureUsers(): Promise<UserDisplay[]> {
   }
 }
 
-// Obtener TODOS los usuarios de la plataforma (para Super Admins)
+// Obtener TODOS los usuarios de la plataforma desde Supabase (para Super Admins)
 async function getAllUsers(): Promise<UserDisplay[]> {
   try {
-    const client = await clerkClient();
-    const clerkUsers = await client.users.getUserList({ limit: 100 });
-    
-    // Traer roles desde Supabase
-    const userIds = clerkUsers.data.map(u => u.id);
+    // 1. Traer TODOS los usuarios de la tabla users de Supabase
+    const { data: supabaseUsers, error } = await supabase
+      .from("users")
+      .select("id, email, full_name, avatar_url, created_at")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching users:", error);
+      return [];
+    }
+
+    if (!supabaseUsers || supabaseUsers.length === 0) {
+      return [];
+    }
+
+    // 2. Traer roles desde user_organizations
+    const userIds = supabaseUsers.map(u => u.id);
     const { data: orgRoles } = await supabase
       .from("user_organizations")
       .select("user_id, role")
       .in("user_id", userIds);
 
-    const users: UserDisplay[] = clerkUsers.data.map(u => {
-      const email = u.emailAddresses[0]?.emailAddress || "";
+    // 3. Combinar datos
+    const users: UserDisplay[] = supabaseUsers.map(u => {
+      const email = u.email || "";
       const orgRole = orgRoles?.find(o => o.user_id === u.id);
       return {
         id: u.id,
         email: email,
-        full_name: u.firstName && u.lastName 
-          ? `${u.firstName} ${u.lastName}` 
-          : u.firstName || null,
-        image_url: u.imageUrl,
+        full_name: u.full_name || null,
+        image_url: u.avatar_url || null,
         role: orgRole?.role || null,
-        created_at: new Date(u.createdAt).toISOString(),
+        created_at: u.created_at || new Date().toISOString(),
         is_kalia: email.toLowerCase().endsWith(`@${SUPER_ADMIN_DOMAIN}`),
       };
     });
 
-    // Ordenar: primero sin rol, luego con rol, luego @kalia.app al final
+    // Ordenar: primero @kalia.app, luego sin rol, luego con rol
     return users.sort((a, b) => {
       // @kalia.app siempre al principio
       if (a.is_kalia && !b.is_kalia) return -1;
       if (!a.is_kalia && b.is_kalia) return 1;
-      // Luego los que no tienen rol
+      // Luego los que no tienen rol (para asignarles)
       if (!a.role && b.role) return -1;
       if (a.role && !b.role) return 1;
       // Luego alfabéticamente

@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Mercure",
+  title: "Kalia - Mercure",
   description: "Sistema de gestión logística",
   icons: {
     icon: "/kalia_logos/kalia_isologo_black.svg",
