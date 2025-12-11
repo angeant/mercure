@@ -16,42 +16,48 @@ interface UserDisplay {
   is_kalia: boolean;
 }
 
-// Obtener usuarios de la organización Mercure (solo los que tienen rol asignado o son @kalia.app)
+// ID de la organización Mercure SRL
+const MERCURE_ORG_ID = "620245b9-bac0-434b-b32e-2e07e9428751";
+
+// Obtener usuarios de Mercure (los que tienen rol asignado en user_organizations para Mercure)
 async function getMercureUsers(): Promise<UserDisplay[]> {
   try {
-    // 1. Traer usuarios con roles asignados desde Supabase
-    const { data: orgRoles } = await supabase
+    // Traer usuarios con rol asignado para la organización Mercure
+    const { data: userOrgs, error: orgError } = await supabase
       .from("user_organizations")
-      .select("user_id, role");
+      .select("user_id, role")
+      .eq("organization_id", MERCURE_ORG_ID)
+      .eq("is_active", true);
 
-    if (!orgRoles || orgRoles.length === 0) {
+    if (orgError) {
+      console.error("Error fetching user_organizations:", orgError);
       return [];
     }
 
-    // 2. Traer datos de usuarios desde la tabla users
-    const userIds = orgRoles.map(o => o.user_id);
-    const { data: supabaseUsers } = await supabase
+    if (!userOrgs || userOrgs.length === 0) {
+      return [];
+    }
+
+    // Traer datos de usuarios
+    const userIds = userOrgs.map(o => o.user_id);
+    const { data: usersData } = await supabase
       .from("users")
-      .select("id, email, full_name, avatar_url, created_at")
+      .select("id, email, name, avatar_url, created_at")
       .in("id", userIds);
 
-    const users: UserDisplay[] = [];
-
-    for (const orgRole of orgRoles) {
-      const userData = supabaseUsers?.find(u => u.id === orgRole.user_id);
+    const users: UserDisplay[] = userOrgs.map(org => {
+      const userData = usersData?.find(u => u.id === org.user_id);
       const email = userData?.email || "";
-      const isKalia = email.toLowerCase().endsWith(`@${SUPER_ADMIN_DOMAIN}`);
-
-      users.push({
-        id: orgRole.user_id,
+      return {
+        id: org.user_id,
         email: email,
-        full_name: userData?.full_name || null,
+        full_name: userData?.name || null,
         image_url: userData?.avatar_url || null,
-        role: orgRole.role,
+        role: org.role,
         created_at: userData?.created_at || new Date().toISOString(),
-        is_kalia: isKalia,
-      });
-    }
+        is_kalia: email.toLowerCase().endsWith(`@${SUPER_ADMIN_DOMAIN}`),
+      };
+    });
 
     // Ordenar: primero @kalia.app, luego por nombre
     return users.sort((a, b) => {
@@ -66,13 +72,13 @@ async function getMercureUsers(): Promise<UserDisplay[]> {
   }
 }
 
-// Obtener TODOS los usuarios de la plataforma desde Supabase (para Super Admins)
+// Obtener TODOS los usuarios de Kalia (para Super Admins)
 async function getAllUsers(): Promise<UserDisplay[]> {
   try {
-    // 1. Traer TODOS los usuarios de la tabla users de Supabase
-    const { data: supabaseUsers, error } = await supabase
+    // Traer TODOS los usuarios de public.users
+    const { data: usersData, error } = await supabase
       .from("users")
-      .select("id, email, full_name, avatar_url, created_at")
+      .select("id, email, name, avatar_url, created_at")
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -80,27 +86,27 @@ async function getAllUsers(): Promise<UserDisplay[]> {
       return [];
     }
 
-    if (!supabaseUsers || supabaseUsers.length === 0) {
+    if (!usersData || usersData.length === 0) {
       return [];
     }
 
-    // 2. Traer roles desde user_organizations
-    const userIds = supabaseUsers.map(u => u.id);
-    const { data: orgRoles } = await supabase
+    // Traer roles desde user_organizations (solo de Mercure)
+    const userIds = usersData.map(u => u.id);
+    const { data: userOrgs } = await supabase
       .from("user_organizations")
       .select("user_id, role")
+      .eq("organization_id", MERCURE_ORG_ID)
       .in("user_id", userIds);
 
-    // 3. Combinar datos
-    const users: UserDisplay[] = supabaseUsers.map(u => {
+    const users: UserDisplay[] = usersData.map(u => {
       const email = u.email || "";
-      const orgRole = orgRoles?.find(o => o.user_id === u.id);
+      const org = userOrgs?.find(o => o.user_id === u.id);
       return {
         id: u.id,
         email: email,
-        full_name: u.full_name || null,
+        full_name: u.name || null,
         image_url: u.avatar_url || null,
-        role: orgRole?.role || null,
+        role: org?.role || null,
         created_at: u.created_at || new Date().toISOString(),
         is_kalia: email.toLowerCase().endsWith(`@${SUPER_ADMIN_DOMAIN}`),
       };
@@ -108,13 +114,10 @@ async function getAllUsers(): Promise<UserDisplay[]> {
 
     // Ordenar: primero @kalia.app, luego sin rol, luego con rol
     return users.sort((a, b) => {
-      // @kalia.app siempre al principio
       if (a.is_kalia && !b.is_kalia) return -1;
       if (!a.is_kalia && b.is_kalia) return 1;
-      // Luego los que no tienen rol (para asignarles)
       if (!a.role && b.role) return -1;
       if (a.role && !b.role) return 1;
-      // Luego alfabéticamente
       return (a.full_name || a.email).localeCompare(b.full_name || b.email);
     });
 
@@ -164,14 +167,29 @@ export default async function ConfiguracionPage() {
   const isSuper = isSuperAdmin(userEmail);
   
   if (!isSuper) {
-    // Verificar permisos desde Supabase
+    // Primero buscar el usuario en users por clerk_id
+    const { data: userData } = await supabase
+      .from("users")
+      .select("id")
+      .eq("clerk_id", userId)
+      .limit(1);
+
+    const supabaseUserId = userData?.[0]?.id;
+
+    if (!supabaseUserId) {
+      redirect("/");
+    }
+
+    // Verificar permisos desde user_organizations
     const { data: currentUserOrg } = await supabase
       .from("user_organizations")
       .select("role")
-      .eq("user_id", userId)
-      .single();
+      .eq("user_id", supabaseUserId)
+      .eq("organization_id", MERCURE_ORG_ID)
+      .eq("is_active", true)
+      .limit(1);
 
-    const currentRole = currentUserOrg?.role;
+    const currentRole = currentUserOrg?.[0]?.role;
 
     // Solo admins y super admins pueden acceder
     if (!canAccessConfig(currentRole, userEmail)) {
@@ -195,9 +213,6 @@ export default async function ConfiguracionPage() {
               <h1 className="text-lg font-medium text-neutral-900">Configuración</h1>
               <p className="text-sm text-neutral-500 mt-0.5">Gestión de usuarios y permisos de Mercure</p>
             </div>
-            {isSuper && (
-              <Badge variant="success" className="text-xs">Super Admin</Badge>
-            )}
           </div>
 
           {/* Usuarios de Mercure */}
@@ -248,12 +263,12 @@ export default async function ConfiguracionPage() {
                         </td>
                         <td className="px-3 py-2 text-neutral-600">
                           {u.email || "-"}
-                          {u.is_kalia && (
+                          {isSuper && u.is_kalia && (
                             <span className="ml-1.5 text-orange-500 text-xs">★</span>
                           )}
                         </td>
                         <td className="px-3 py-2">
-                          {u.is_kalia ? (
+                          {u.is_kalia && isSuper ? (
                             <Badge variant="success">Super Admin</Badge>
                           ) : u.role ? (
                             <Badge variant={getRoleBadgeVariant(u.role)}>
@@ -289,11 +304,13 @@ export default async function ConfiguracionPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  <tr className="border-b border-neutral-100">
-                    <td className="px-3 py-2 font-medium">Super Admin</td>
-                    <td className="px-3 py-2 text-neutral-600">Acceso total al sistema (Kalia)</td>
-                    <td className="px-3 py-2"><Badge variant="success">Todo</Badge></td>
-                  </tr>
+                  {isSuper && (
+                    <tr className="border-b border-neutral-100">
+                      <td className="px-3 py-2 font-medium">Super Admin</td>
+                      <td className="px-3 py-2 text-neutral-600">Acceso total al sistema (Kalia)</td>
+                      <td className="px-3 py-2"><Badge variant="success">Todo</Badge></td>
+                    </tr>
+                  )}
                   <tr className="border-b border-neutral-100">
                     <td className="px-3 py-2 font-medium">Administrador</td>
                     <td className="px-3 py-2 text-neutral-600">Gestión completa de Mercure</td>
@@ -332,7 +349,6 @@ export default async function ConfiguracionPage() {
           {/* Info */}
           <div className="mt-6 bg-neutral-50 border border-neutral-200 rounded p-4">
             <p className="text-xs text-neutral-500">
-              <span className="text-orange-500">★</span> indica Super Admin (acceso total).
               Los permisos se aplican automáticamente según el rol asignado.
             </p>
           </div>

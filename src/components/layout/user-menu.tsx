@@ -56,9 +56,9 @@ export function UserMenu() {
                 {initials}
               </AvatarFallback>
             </Avatar>
-            {(roleLabel || isSuper) && (
-              <span className={`absolute -bottom-1 -right-1 text-white text-[9px] font-medium px-1.5 py-0.5 rounded-full leading-none ${isSuper ? 'bg-orange-500' : 'bg-neutral-600'}`}>
-                {isSuper ? '★' : roleLabel?.slice(0, 3).toUpperCase()}
+            {roleLabel && (
+              <span className={`absolute -bottom-1 -right-1 text-white text-[9px] font-medium px-1.5 py-0.5 rounded-full leading-none bg-neutral-600`}>
+                {roleLabel?.slice(0, 3).toUpperCase()}
               </span>
             )}
           </div>
@@ -73,13 +73,13 @@ export function UserMenu() {
           <p className="text-xs text-neutral-500 truncate">
             {userEmail}
           </p>
-          {isSuper ? (
-            <p className="text-xs text-orange-500 font-medium mt-1">
-              ★ Super Admin
-            </p>
-          ) : roleLabel ? (
+          {roleLabel ? (
             <p className="text-xs text-neutral-600 font-medium mt-1">
-              {roleLabel}
+              {isSuper ? "★ " : ""}{roleLabel}
+            </p>
+          ) : isSuper ? (
+            <p className="text-xs text-orange-500 font-medium mt-1">
+              ★ Kalia
             </p>
           ) : null}
         </div>

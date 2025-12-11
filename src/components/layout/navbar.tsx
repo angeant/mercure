@@ -88,6 +88,7 @@ export function Navbar() {
             <DropdownMenu key={area.label}>
               <DropdownMenuTrigger asChild>
                 <button
+                  suppressHydrationWarning
                   className={`flex items-center gap-1 px-2.5 py-1.5 text-sm rounded transition-colors outline-none ${
                     isActiveArea(area.items)
                       ? "text-white font-medium"

@@ -4,23 +4,15 @@ import { useUser } from "@clerk/nextjs";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
-interface UserOrganization {
-  id: string;
-  user_id: string;
-  organization_id: string;
-  role: string;
-  created_at: string;
-}
+// ID de la organización Mercure SRL
+const MERCURE_ORG_ID = "620245b9-bac0-434b-b32e-2e07e9428751";
 
-interface UserProfile {
-  id: string;
-  email: string;
-  full_name: string | null;
-  avatar_url: string | null;
+interface UserOrganization {
+  user_id: string;
+  role: string;
 }
 
 interface UserProfileData {
-  user: UserProfile | null;
   organization: UserOrganization | null;
   isLoading: boolean;
   error: Error | null;
@@ -29,7 +21,6 @@ interface UserProfileData {
 export function useUserProfile(): UserProfileData {
   const { user: clerkUser, isLoaded } = useUser();
   const [data, setData] = useState<UserProfileData>({
-    user: null,
     organization: null,
     isLoading: true,
     error: null,
@@ -43,53 +34,53 @@ export function useUserProfile(): UserProfileData {
       }
 
       try {
-        const userEmail = clerkUser.emailAddresses[0]?.emailAddress;
+        // Buscar el usuario en public.users por clerk_id
+        const { data: usersData, error: userError } = await supabase
+          .from("users")
+          .select("id")
+          .eq("clerk_id", clerkUser.id)
+          .limit(1);
 
-        if (!userEmail) {
-          setData((prev) => ({ ...prev, isLoading: false }));
+        if (userError) {
+          console.error("Error fetching user:", userError);
+          setData({ organization: null, isLoading: false, error: null });
           return;
         }
 
-        // Fetch user from public.users by email
-        const { data: userData, error: userError } = await supabase
-          .from("users")
-          .select("*")
-          .eq("email", userEmail)
-          .single();
-
-        if (userError && userError.code !== "PGRST116") {
-          throw userError;
+        const userData = usersData?.[0];
+        if (!userData) {
+          // Usuario no existe en la tabla users - no es error, solo no tiene perfil
+          setData({ organization: null, isLoading: false, error: null });
+          return;
         }
 
-        let organizationData = null;
+        // Buscar el rol en user_organizations para Mercure
+        const { data: orgsData, error: orgError } = await supabase
+          .from("user_organizations")
+          .select("user_id, role")
+          .eq("user_id", userData.id)
+          .eq("organization_id", MERCURE_ORG_ID)
+          .eq("is_active", true)
+          .limit(1);
 
-        if (userData) {
-          // Fetch user organization role
-          const { data: orgData, error: orgError } = await supabase
-            .from("user_organizations")
-            .select("*")
-            .eq("user_id", userData.id)
-            .single();
-
-          if (orgError && orgError.code !== "PGRST116") {
-            throw orgError;
-          }
-
-          organizationData = orgData;
+        if (orgError) {
+          console.error("Error fetching org:", orgError);
+          setData({ organization: null, isLoading: false, error: null });
+          return;
         }
 
         setData({
-          user: userData,
-          organization: organizationData,
+          organization: orgsData?.[0] || null,
           isLoading: false,
           error: null,
         });
       } catch (error) {
-        setData((prev) => ({
-          ...prev,
+        console.error("Error in useUserProfile:", error);
+        setData({
+          organization: null,
           isLoading: false,
-          error: error as Error,
-        }));
+          error: null,
+        });
       }
     }
 

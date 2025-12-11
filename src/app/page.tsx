@@ -2,6 +2,7 @@ import { auth, currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { Navbar } from "@/components/layout/navbar";
 import { supabase } from "@/lib/supabase";
+import { hasAccess } from "@/lib/auth";
 import { SHIPMENT_STATUS_LABELS, TRIP_STATUS_LABELS } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
@@ -49,6 +50,12 @@ function getStatusVariant(status: string): "default" | "success" | "warning" | "
 export default async function Home() {
   const { userId } = await auth();
   if (!userId) redirect("/sign-in");
+
+  // Verificar si tiene acceso (rol asignado)
+  const userHasAccess = await hasAccess(userId);
+  if (!userHasAccess) {
+    redirect("/solicitar-acceso");
+  }
 
   const user = await currentUser();
   const [activeTrips, pendingShipments, recentDeliveries] = await Promise.all([
