@@ -418,8 +418,9 @@ function Road() {
 function Scene({ warehouseData, tripsInTransit, onSelectShipments }: LogisticsSceneProps) {
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
 
-  const bsasPos: [number, number, number] = [-5, 0, -2];
-  const jujuyPos: [number, number, number] = [5, 0, -2];
+  // Posiciones ajustadas para vista lateral
+  const bsasPos: [number, number, number] = [-6, 0, 0];
+  const jujuyPos: [number, number, number] = [6, 0, 0];
 
   const handleWarehouseClick = (warehouse: WarehouseData) => {
     setSelectedItem(`warehouse-${warehouse.id}`);
@@ -492,38 +493,38 @@ function Scene({ warehouseData, tripsInTransit, onSelectShipments }: LogisticsSc
         />
       )}
 
-      {/* Camiones CARGANDO en BS AS (al costado del depósito) */}
+      {/* Camiones CARGANDO en BS AS (al lado derecho del depósito) */}
       {loadingTrucks.map((trip, i) => (
         <ParkedTruck
           key={`loading-${trip.id}`}
           trip={trip}
-          position={[bsasPos[0] + 2.5, 0, bsasPos[2] + 1.5 + i * 1.2]}
-          rotation={[0, -Math.PI / 2, 0]} // Mirando hacia el depósito
+          position={[bsasPos[0] + 2.2 + i * 2, 0, bsasPos[2] - 2]}
+          rotation={[0, 0, 0]} // Mirando hacia Jujuy
           status="loading"
           onSelect={() => handleTripClick(trip, `Cargando: ${trip.vehiclePlate || `Viaje #${trip.id}`}`)}
           isSelected={selectedItem === `trip-${trip.id}`}
         />
       ))}
 
-      {/* Camiones DESCARGANDO en Jujuy (al costado del depósito) */}
+      {/* Camiones DESCARGANDO en Jujuy (al lado izquierdo del depósito) */}
       {unloadingTrucks.map((trip, i) => (
         <ParkedTruck
           key={`unloading-${trip.id}`}
           trip={trip}
-          position={[jujuyPos[0] - 2.5, 0, jujuyPos[2] + 1.5 + i * 1.2]}
-          rotation={[0, Math.PI / 2, 0]} // Mirando hacia el depósito
+          position={[jujuyPos[0] - 2.2 - i * 2, 0, jujuyPos[2] - 2]}
+          rotation={[0, Math.PI, 0]} // Mirando hacia BS AS (acaba de llegar)
           status="unloading"
           onSelect={() => handleTripClick(trip, `Descargando: ${trip.vehiclePlate || `Viaje #${trip.id}`}`)}
           isSelected={selectedItem === `trip-${trip.id}`}
         />
       ))}
 
-      {/* Van de REPARTO en Jujuy (saliendo del depósito) */}
+      {/* Van de REPARTO en Jujuy (saliendo hacia adelante) */}
       {repartoShipments.length > 0 && (
         <DeliveryVan
           shipmentCount={repartoShipments.length}
-          position={[jujuyPos[0] + 2.5, 0, jujuyPos[2] + 2]}
-          rotation={[0, Math.PI / 4, 0]} // Saliendo hacia afuera
+          position={[jujuyPos[0] + 2, 0, jujuyPos[2] + 2.5]}
+          rotation={[0, Math.PI / 2, 0]} // Saliendo hacia adelante
           onClick={() => handleRepartoClick(repartoShipments, "Jujuy")}
           isSelected={selectedItem === "reparto-Jujuy"}
         />
@@ -547,7 +548,7 @@ export function LogisticsScene3D(props: LogisticsSceneProps) {
     <div className="w-full h-full bg-gradient-to-b from-sky-100 to-neutral-200 rounded-lg overflow-hidden">
       <Canvas
         shadows
-        camera={{ position: [0, 10, 12], fov: 45, near: 0.1, far: 100 }}
+        camera={{ position: [0, 4, 16], fov: 40, near: 0.1, far: 100 }}
       >
         <Suspense fallback={
           <Html center>
