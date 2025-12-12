@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createInvoice } from '@/lib/afip/wsfe';
 import { CONCEPT_CODES, DOC_TYPE_CODES, InvoiceType } from '@/lib/afip/types';
 import { supabase } from '@/lib/supabase';
+import { sendInvoiceEmail, getClientEmail } from '@/lib/email';
+import { generateInvoicePdf } from '@/lib/invoice-pdf';
 
 interface FacturaNuevaRequest {
   cliente_id?: number;
@@ -15,6 +17,7 @@ interface FacturaNuevaRequest {
   total: number;
   emission_mode: 'manual' | 'automatic';
   remito_ids?: number[];
+  send_email?: boolean;
 }
 
 export async function POST(request: NextRequest) {
@@ -140,6 +143,57 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Enviar email si está habilitado
+    let emailSent = false;
+    let emailError: string | undefined;
+
+    if (body.send_email && body.cliente_id) {
+      try {
+        const clientEmail = await getClientEmail(body.cliente_id);
+        
+        if (clientEmail) {
+          // Generar PDF
+          const pdfBuffer = await generateInvoicePdf({
+            invoiceNumber,
+            invoiceType: body.invoice_type,
+            cae: result.cae!,
+            caeExpiration: caeExpirationFormatted || '',
+            clienteCuit: body.cliente_cuit,
+            clienteNombre: body.cliente_nombre,
+            neto: body.neto,
+            iva: body.iva,
+            total: body.total,
+          });
+
+          // Enviar email
+          const emailResult = await sendInvoiceEmail({
+            to: clientEmail,
+            clientName: body.cliente_nombre,
+            invoiceNumber,
+            cae: result.cae!,
+            caeExpiration: caeExpirationFormatted || '',
+            total: body.total,
+            pdfBuffer,
+          });
+
+          emailSent = emailResult.success;
+          emailError = emailResult.error;
+          
+          if (emailSent) {
+            console.log(`✓ Email enviado a ${clientEmail}`);
+          } else {
+            console.error(`✗ Error enviando email:`, emailError);
+          }
+        } else {
+          emailError = 'Cliente sin email registrado';
+          console.warn(`⚠ Cliente ${body.cliente_nombre} no tiene email registrado`);
+        }
+      } catch (e) {
+        emailError = e instanceof Error ? e.message : 'Error al enviar email';
+        console.error('Error en envío de email:', e);
+      }
+    }
+
     return NextResponse.json({
       success: true,
       cae: result.cae,
@@ -151,6 +205,8 @@ export async function POST(request: NextRequest) {
       total: body.total,
       emissionMode: body.emission_mode,
       remitosFacturados: body.remito_ids?.length || 0,
+      emailSent,
+      emailError,
     });
 
   } catch (error) {

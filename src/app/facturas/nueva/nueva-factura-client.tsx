@@ -75,6 +75,7 @@ export function NuevaFacturaClient() {
   // Común
   const [invoiceType, setInvoiceType] = useState<InvoiceType>('A');
   const [pointOfSale, setPointOfSale] = useState(5);
+  const [sendEmail, setSendEmail] = useState(true);
 
   // Cargar clientes con cuenta corriente
   useEffect(() => {
@@ -203,6 +204,7 @@ export function NuevaFacturaClient() {
           total: totalRemitosSeleccionados,
           emission_mode: 'automatic',
           remito_ids: selectedRemitos,
+          send_email: sendEmail,
         };
       } else {
         if (!manualCuit) {
@@ -223,6 +225,7 @@ export function NuevaFacturaClient() {
           iva: ivaManual,
           total: totalManual,
           emission_mode: 'manual',
+          send_email: sendEmail,
         };
       }
 
@@ -322,6 +325,29 @@ export function NuevaFacturaClient() {
             ))}
           </select>
         </div>
+      </div>
+
+      {/* Toggle envío por email */}
+      <div className="flex items-center justify-between p-3 bg-neutral-50 rounded-lg border border-neutral-200">
+        <div>
+          <div className="text-sm font-medium text-neutral-700">Enviar factura por email</div>
+          <div className="text-xs text-neutral-500">
+            Se enviará al email del cliente con copia a administración
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => setSendEmail(!sendEmail)}
+          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+            sendEmail ? 'bg-orange-500' : 'bg-neutral-300'
+          }`}
+        >
+          <span
+            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+              sendEmail ? 'translate-x-6' : 'translate-x-1'
+            }`}
+          />
+        </button>
       </div>
 
       {/* Modo Automático */}
