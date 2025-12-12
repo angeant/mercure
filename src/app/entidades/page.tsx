@@ -45,11 +45,12 @@ export default async function EntidadesPage() {
                     <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Email</th>
                     <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Teléfono</th>
                     <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Dirección</th>
+                    <th className="px-3 py-2 text-center text-xs font-medium text-neutral-500 uppercase">Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
                   {entities.length === 0 ? (
-                    <tr><td colSpan={7} className="px-3 py-8 text-center text-neutral-400">Sin entidades</td></tr>
+                    <tr><td colSpan={8} className="px-3 py-8 text-center text-neutral-400">Sin entidades</td></tr>
                   ) : (
                     entities.map((e: Record<string, unknown>) => (
                       <tr key={e.id as number} className="border-b border-neutral-100 last:border-0 hover:bg-neutral-50">
@@ -72,6 +73,14 @@ export default async function EntidadesPage() {
                         <td className="px-3 py-2 text-neutral-600 text-xs">{(e.email as string) || '-'}</td>
                         <td className="px-3 py-2 text-neutral-600 text-xs">{(e.phone as string) || '-'}</td>
                         <td className="px-3 py-2 text-neutral-400 text-xs truncate max-w-[150px]">{(e.address as string) || '-'}</td>
+                        <td className="px-3 py-2 text-center">
+                          <Link 
+                            href={`/entidades/${e.id}`}
+                            className="text-xs text-orange-500 hover:text-orange-600 hover:underline"
+                          >
+                            Editar
+                          </Link>
+                        </td>
                       </tr>
                     ))
                   )}
