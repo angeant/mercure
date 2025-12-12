@@ -1,9 +1,8 @@
-import { auth } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
 import { Navbar } from "@/components/layout/navbar";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
 import { Badge } from "@/components/ui/badge";
+import { requireAuth } from "@/lib/auth";
 import Link from "next/link";
 
 async function getVehicles() {
@@ -15,8 +14,8 @@ async function getVehicles() {
 }
 
 export default async function VehiculosPage() {
-  const { userId } = await auth();
-  if (!userId) redirect("/sign-in");
+  // Verificar autenticación y permiso para esta ruta
+  await requireAuth("/vehiculos");
 
   const vehicles = await getVehicles();
 

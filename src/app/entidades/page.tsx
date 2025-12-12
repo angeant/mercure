@@ -1,10 +1,9 @@
-import { auth } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
 import { Navbar } from "@/components/layout/navbar";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
 import { ENTITY_TYPE_LABELS, PAYMENT_TERMS_LABELS } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
+import { requireAuth } from "@/lib/auth";
 import Link from "next/link";
 
 async function getEntities() {
@@ -16,8 +15,7 @@ async function getEntities() {
 }
 
 export default async function EntidadesPage() {
-  const { userId } = await auth();
-  if (!userId) redirect("/sign-in");
+  await requireAuth("/entidades");
 
   const entities = await getEntities();
 

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronDown } from "lucide-react";
 import { UserMenu } from "./user-menu";
+import { useUserProfile } from "@/lib/hooks/use-user-profile";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,7 +15,18 @@ import {
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 
-const menuAreas = [
+interface MenuItem {
+  href: string;
+  label: string;
+  description: string;
+}
+
+interface MenuArea {
+  label: string;
+  items: MenuItem[];
+}
+
+const menuAreas: MenuArea[] = [
   {
     label: "Operaciones",
     items: [
@@ -65,13 +77,28 @@ const menuAreas = [
 
 export function Navbar() {
   const pathname = usePathname();
+  const { canAccessRoute, isLoading } = useUserProfile();
 
-  const isActiveArea = (items: { href: string }[]) => {
+  const isActiveArea = (items: MenuItem[]) => {
     return items.some(item => 
       pathname === item.href || 
       (item.href !== "/" && pathname.startsWith(item.href))
     );
   };
+
+  // Filtrar items accesibles de cada área
+  const getAccessibleItems = (items: MenuItem[]): MenuItem[] => {
+    if (isLoading) return items; // Mientras carga, mostrar todos
+    return items.filter(item => canAccessRoute(item.href));
+  };
+
+  // Obtener áreas con items accesibles
+  const accessibleAreas = menuAreas
+    .map(area => ({
+      ...area,
+      items: getAccessibleItems(area.items),
+    }))
+    .filter(area => area.items.length > 0);
 
   return (
     <nav className="h-12 bg-zinc-900 flex items-center justify-between px-4 fixed top-0 left-0 right-0 z-50">
@@ -87,7 +114,7 @@ export function Navbar() {
         </Link>
         
         <div className="hidden md:flex items-center gap-1">
-          {menuAreas.map((area) => (
+          {accessibleAreas.map((area) => (
             <DropdownMenu key={area.label}>
               <DropdownMenuTrigger asChild>
                 <button

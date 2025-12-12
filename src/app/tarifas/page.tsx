@@ -1,9 +1,8 @@
-import { auth } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
 import { Navbar } from "@/components/layout/navbar";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
 import { Badge } from "@/components/ui/badge";
+import { requireAuth } from "@/lib/auth";
 import Link from "next/link";
 import { TariffTable } from "./tariff-table";
 
@@ -34,8 +33,7 @@ async function getQuotations() {
 }
 
 export default async function TarifasPage() {
-  const { userId } = await auth();
-  if (!userId) redirect("/sign-in");
+  await requireAuth("/tarifas");
 
   const [tariffs, insuranceRates, quotations] = await Promise.all([
     getTariffs(),

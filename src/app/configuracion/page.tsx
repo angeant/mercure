@@ -1,7 +1,7 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { Navbar } from "@/components/layout/navbar";
-import { supabase } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabase";
 import { canAccessConfig, isSuperAdmin, ROLES, SUPER_ADMIN_DOMAIN } from "@/lib/permissions";
 import { Badge } from "@/components/ui/badge";
 import { RoleForm } from "./role-form";
@@ -18,9 +18,14 @@ interface UserDisplay {
 
 // Obtener usuarios de Mercure (los que tienen rol asignado en mercure_user_roles)
 async function getMercureUsers(): Promise<UserDisplay[]> {
+  if (!supabaseAdmin) {
+    console.error("supabaseAdmin not configured");
+    return [];
+  }
+  
   try {
     // Traer usuarios con rol asignado en mercure_user_roles
-    const { data: userRoles, error: rolesError } = await supabase
+    const { data: userRoles, error: rolesError } = await supabaseAdmin
       .from("mercure_user_roles")
       .select("user_id, role")
       .eq("is_active", true);
@@ -36,7 +41,7 @@ async function getMercureUsers(): Promise<UserDisplay[]> {
 
     // Traer datos de usuarios
     const userIds = userRoles.map(r => r.user_id);
-    const { data: usersData } = await supabase
+    const { data: usersData } = await supabaseAdmin
       .from("users")
       .select("id, email, name, avatar_url, created_at")
       .in("id", userIds);
@@ -70,9 +75,14 @@ async function getMercureUsers(): Promise<UserDisplay[]> {
 
 // Obtener TODOS los usuarios de Kalia (para Super Admins)
 async function getAllUsers(): Promise<UserDisplay[]> {
+  if (!supabaseAdmin) {
+    console.error("supabaseAdmin not configured");
+    return [];
+  }
+  
   try {
     // Traer TODOS los usuarios de public.users
-    const { data: usersData, error } = await supabase
+    const { data: usersData, error } = await supabaseAdmin
       .from("users")
       .select("id, email, name, avatar_url, created_at")
       .order("created_at", { ascending: false });
@@ -88,7 +98,7 @@ async function getAllUsers(): Promise<UserDisplay[]> {
 
     // Traer roles desde mercure_user_roles
     const userIds = usersData.map(u => u.id);
-    const { data: userRoles } = await supabase
+    const { data: userRoles } = await supabaseAdmin
       .from("mercure_user_roles")
       .select("user_id, role")
       .eq("is_active", true)
@@ -162,9 +172,9 @@ export default async function ConfiguracionPage() {
   // Para super admins, siempre permitir acceso
   const isSuper = isSuperAdmin(userEmail);
   
-  if (!isSuper) {
+  if (!isSuper && supabaseAdmin) {
     // Primero buscar el usuario en users por clerk_id
-    const { data: userData } = await supabase
+    const { data: userData } = await supabaseAdmin
       .from("users")
       .select("id")
       .eq("clerk_id", userId)
@@ -177,7 +187,7 @@ export default async function ConfiguracionPage() {
     }
 
     // Verificar permisos desde mercure_user_roles
-    const { data: currentUserRole } = await supabase
+    const { data: currentUserRole } = await supabaseAdmin
       .from("mercure_user_roles")
       .select("role")
       .eq("user_id", supabaseUserId)

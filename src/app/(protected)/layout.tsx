@@ -1,6 +1,8 @@
-import { auth } from "@clerk/nextjs/server";
+import { auth, currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { hasAccess } from "@/lib/auth";
+import { ProtectedRoute } from "@/components/layout/protected-route";
+import { PermissionsProvider } from "@/lib/contexts/permissions-context";
 
 export default async function ProtectedLayout({
   children,
@@ -13,12 +15,22 @@ export default async function ProtectedLayout({
     redirect("/sign-in");
   }
 
-  // Verificar si tiene acceso (rol asignado)
-  const userHasAccess = await hasAccess(userId);
+  // Obtener email para verificar super admin
+  const user = await currentUser();
+  const userEmail = user?.emailAddresses[0]?.emailAddress;
+
+  // Verificar si tiene acceso (rol asignado o super admin)
+  const userHasAccess = await hasAccess(userId, userEmail);
   if (!userHasAccess) {
     redirect("/solicitar-acceso");
   }
 
-  return <>{children}</>;
+  return (
+    <PermissionsProvider>
+      <ProtectedRoute>
+        {children}
+      </ProtectedRoute>
+    </PermissionsProvider>
+  );
 }
 

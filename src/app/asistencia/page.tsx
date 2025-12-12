@@ -1,10 +1,8 @@
-import { auth } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
+import { requireAuth } from "@/lib/auth";
 import { Navbar } from "@/components/layout/navbar";
 
 export default async function AsistenciaPage() {
-  const { userId } = await auth();
-  if (!userId) redirect("/sign-in");
+  await requireAuth("/asistencia");
 
   return (
     <div className="min-h-screen bg-white">

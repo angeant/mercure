@@ -1,5 +1,4 @@
-import { auth } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
+import { requireAuth } from "@/lib/auth";
 import { Navbar } from "@/components/layout/navbar";
 
 const processes = [
@@ -36,8 +35,7 @@ const summarySteps = [
 ];
 
 export default async function ProcesosPage() {
-  const { userId } = await auth();
-  if (!userId) redirect("/sign-in");
+  await requireAuth("/procesos");
 
   return (
     <div className="min-h-screen bg-white">

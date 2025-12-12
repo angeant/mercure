@@ -1,7 +1,6 @@
-import { auth } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
 import { Navbar } from "@/components/layout/navbar";
 import { supabase } from "@/lib/supabase";
+import { requireAuth } from "@/lib/auth";
 import Link from "next/link";
 import { Truck } from "lucide-react";
 
@@ -62,8 +61,7 @@ function groupByTrip(shipments: Shipment[]) {
 }
 
 export default async function EnviosPage() {
-  const { userId } = await auth();
-  if (!userId) redirect("/sign-in");
+  await requireAuth("/envios");
 
   const shipments = await getShipmentsEnTransito();
   const { groups, sinViaje } = groupByTrip(shipments);

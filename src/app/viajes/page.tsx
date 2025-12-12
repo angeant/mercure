@@ -1,10 +1,9 @@
-import { auth } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
 import { Navbar } from "@/components/layout/navbar";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
 import { TRIP_STATUS_LABELS } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
+import { requireAuth } from "@/lib/auth";
 import Link from "next/link";
 
 async function getTrips() {
@@ -27,8 +26,7 @@ function getStatusVariant(status: string): "default" | "success" | "warning" | "
 }
 
 export default async function ViajesPage() {
-  const { userId } = await auth();
-  if (!userId) redirect("/sign-in");
+  await requireAuth("/viajes");
 
   const trips = await getTrips();
 

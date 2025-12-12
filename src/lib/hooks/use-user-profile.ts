@@ -1,8 +1,15 @@
 "use client";
 
 import { useUser } from "@clerk/nextjs";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
+import { 
+  Permission, 
+  hasPermission, 
+  canAccessRoute, 
+  getAccessibleModules,
+  isSuperAdmin 
+} from "@/lib/permissions";
 
 interface MercureUserRole {
   user_id: string;
@@ -11,17 +18,45 @@ interface MercureUserRole {
 
 interface UserProfileData {
   mercureRole: MercureUserRole | null;
+  role: string | null;
+  email: string | null;
   isLoading: boolean;
   error: Error | null;
+  isSuperAdmin: boolean;
+  // Métodos de permisos
+  can: (permission: Permission) => boolean;
+  canAccessRoute: (pathname: string) => boolean;
+  accessibleModules: Permission[];
 }
 
 export function useUserProfile(): UserProfileData {
   const { user: clerkUser, isLoaded } = useUser();
-  const [data, setData] = useState<UserProfileData>({
+  const [data, setData] = useState<{
+    mercureRole: MercureUserRole | null;
+    isLoading: boolean;
+    error: Error | null;
+  }>({
     mercureRole: null,
     isLoading: true,
     error: null,
   });
+
+  const userEmail = clerkUser?.emailAddresses[0]?.emailAddress || null;
+  const role = data.mercureRole?.role || null;
+  const isSuper = isSuperAdmin(userEmail);
+
+  // Método para verificar permisos
+  const can = useCallback((permission: Permission): boolean => {
+    return hasPermission(role, userEmail, permission);
+  }, [role, userEmail]);
+
+  // Método para verificar acceso a rutas
+  const canAccessRouteFn = useCallback((pathname: string): boolean => {
+    return canAccessRoute(role, userEmail, pathname);
+  }, [role, userEmail]);
+
+  // Módulos accesibles
+  const accessibleModules = getAccessibleModules(role, userEmail);
 
   useEffect(() => {
     async function fetchUserProfile() {
@@ -83,7 +118,15 @@ export function useUserProfile(): UserProfileData {
     fetchUserProfile();
   }, [clerkUser, isLoaded]);
 
-  return data;
+  return {
+    ...data,
+    role,
+    email: userEmail,
+    isSuperAdmin: isSuper,
+    can,
+    canAccessRoute: canAccessRouteFn,
+    accessibleModules,
+  };
 }
 
 // Labels para roles

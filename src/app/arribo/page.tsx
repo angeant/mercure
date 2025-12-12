@@ -1,5 +1,4 @@
-import { auth } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
+import { requireAuth } from "@/lib/auth";
 import { Navbar } from "@/components/layout/navbar";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
@@ -40,8 +39,7 @@ async function getShipmentsArribo() {
 }
 
 export default async function ArriboPage() {
-  const { userId } = await auth();
-  if (!userId) redirect("/sign-in");
+  await requireAuth("/arribo");
 
   const shipments = await getShipmentsArribo();
   

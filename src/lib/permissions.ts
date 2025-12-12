@@ -39,7 +39,10 @@ export const PERMISSIONS = {
   
   // Operaciones
   recepcion: ["super_admin", "admin", "administrativo", "auxiliar_deposito"],
+  consolidacion: ["super_admin", "admin", "administrativo", "auxiliar_deposito"],
   envios: ["super_admin", "admin", "administrativo", "auxiliar_deposito", "chofer"],
+  arribo: ["super_admin", "admin", "administrativo", "auxiliar_deposito"],
+  reparto: ["super_admin", "admin", "administrativo", "chofer"],
   viajes: ["super_admin", "admin", "administrativo", "chofer"],
   vehiculos: ["super_admin", "admin", "administrativo"],
   entidades: ["super_admin", "admin", "administrativo", "atencion_cliente"],
@@ -53,6 +56,20 @@ export const PERMISSIONS = {
   cobranzas: ["super_admin", "admin", "contabilidad"],
   liquidaciones: ["super_admin", "admin", "contabilidad"],
   pagos: ["super_admin", "admin", "contabilidad"],
+  contabilidad: ["super_admin", "admin", "contabilidad"],
+  
+  // RRHH
+  personal: ["super_admin", "admin"],
+  asistencia: ["super_admin", "admin"],
+  vacaciones: ["super_admin", "admin"],
+  legajos: ["super_admin", "admin"],
+  
+  // Marketing
+  whatsapp: ["super_admin", "admin", "atencion_cliente"],
+  campanas: ["super_admin", "admin", "atencion_cliente"],
+  redes: ["super_admin", "admin", "atencion_cliente"],
+  agenda: ["super_admin", "admin", "atencion_cliente"],
+  reportes_mkt: ["super_admin", "admin", "atencion_cliente"],
   
   // Configuración (solo admins)
   configuracion: ["super_admin", "admin"],
@@ -63,6 +80,37 @@ export const PERMISSIONS = {
 } as const;
 
 export type Permission = keyof typeof PERMISSIONS;
+
+// Mapeo de rutas a permisos
+export const ROUTE_PERMISSIONS: Record<string, Permission> = {
+  "/": "dashboard",
+  "/recepcion": "recepcion",
+  "/consolidacion": "consolidacion",
+  "/envios": "envios",
+  "/arribo": "arribo",
+  "/reparto": "reparto",
+  "/viajes": "viajes",
+  "/vehiculos": "vehiculos",
+  "/entidades": "entidades",
+  "/tarifas": "tarifas",
+  "/facturas": "facturas",
+  "/cobranzas": "cobranzas",
+  "/cuentas-corrientes": "cuentas_corrientes",
+  "/pagos": "pagos",
+  "/contabilidad": "contabilidad",
+  "/personal": "personal",
+  "/asistencia": "asistencia",
+  "/vacaciones": "vacaciones",
+  "/liquidaciones": "liquidaciones",
+  "/legajos": "legajos",
+  "/whatsapp": "whatsapp",
+  "/campanas": "campanas",
+  "/redes": "redes",
+  "/agenda": "agenda",
+  "/reportes-mkt": "reportes_mkt",
+  "/configuracion": "configuracion",
+  "/procesos": "procesos",
+};
 
 // Verificar si un email es super admin
 export function isSuperAdmin(email: string | null | undefined): boolean {
@@ -89,6 +137,35 @@ export function hasPermission(
   return allowedRoles.includes(role);
 }
 
+// Verificar si puede acceder a una ruta específica
+export function canAccessRoute(
+  role: string | null | undefined,
+  email: string | null | undefined,
+  pathname: string
+): boolean {
+  // Super admins tienen acceso a todo
+  if (isSuperAdmin(email)) return true;
+  
+  // Buscar el permiso para la ruta
+  // Primero intentar match exacto, luego match por prefijo
+  let permission = ROUTE_PERMISSIONS[pathname];
+  
+  if (!permission) {
+    // Buscar por prefijo (ej: /recepcion/nueva -> recepcion)
+    const matchingRoute = Object.keys(ROUTE_PERMISSIONS).find(
+      route => route !== "/" && pathname.startsWith(route)
+    );
+    if (matchingRoute) {
+      permission = ROUTE_PERMISSIONS[matchingRoute];
+    }
+  }
+  
+  // Si no hay permiso definido para la ruta, denegar por defecto
+  if (!permission) return false;
+  
+  return hasPermission(role, email, permission);
+}
+
 // Verificar si puede acceder a configuración
 export function canAccessConfig(
   role: string | null | undefined,
@@ -111,4 +188,16 @@ export function getAccessibleModules(
   return (Object.entries(PERMISSIONS) as [Permission, readonly string[]][])
     .filter(([, roles]) => roles.includes(role))
     .map(([permission]) => permission);
+}
+
+// Obtener rutas accesibles para un rol
+export function getAccessibleRoutes(
+  role: string | null | undefined,
+  email: string | null | undefined
+): string[] {
+  const accessibleModules = getAccessibleModules(role, email);
+  
+  return Object.entries(ROUTE_PERMISSIONS)
+    .filter(([, permission]) => accessibleModules.includes(permission))
+    .map(([route]) => route);
 }

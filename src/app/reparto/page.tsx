@@ -1,5 +1,4 @@
-import { auth } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
+import { requireAuth } from "@/lib/auth";
 import { Navbar } from "@/components/layout/navbar";
 import { supabase } from "@/lib/supabase";
 import { MapPin } from "lucide-react";
@@ -50,8 +49,7 @@ async function getShipmentsEntregados() {
 }
 
 export default async function RepartoPage() {
-  const { userId } = await auth();
-  if (!userId) redirect("/sign-in");
+  await requireAuth("/reparto");
 
   const [enReparto, entregados] = await Promise.all([
     getShipmentsReparto(),
