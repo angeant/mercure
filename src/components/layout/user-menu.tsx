@@ -11,14 +11,14 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { LogOut, Settings } from "lucide-react";
-import { useUserProfile, ROLE_LABELS } from "@/lib/hooks/use-user-profile";
-import { canAccessConfig, isSuperAdmin } from "@/lib/permissions";
+import { useUserProfile } from "@/lib/hooks/use-user-profile";
+import { isSuperAdmin } from "@/lib/permissions";
 
 export function UserMenu() {
   const { user } = useUser();
   const { signOut } = useClerk();
   const router = useRouter();
-  const { mercureRole } = useUserProfile();
+  const { permissions, can } = useUserProfile();
 
   if (!user) return null;
 
@@ -28,14 +28,13 @@ export function UserMenu() {
 
   const userEmail = user.emailAddresses[0]?.emailAddress;
   const displayName = user.fullName || userEmail?.split("@")[0] || "Usuario";
-  const userRole = mercureRole?.role;
-  const roleLabel = userRole 
-    ? ROLE_LABELS[userRole] || userRole 
-    : null;
   
   // Verificar si puede acceder a configuración
-  const showConfig = canAccessConfig(userRole, userEmail);
+  const showConfig = can("configuracion");
   const isSuper = isSuperAdmin(userEmail);
+
+  // Contar permisos activos
+  const activePermissions = Object.values(permissions).filter(Boolean).length;
 
   return (
     <DropdownMenu>
@@ -56,9 +55,9 @@ export function UserMenu() {
                 {initials}
               </AvatarFallback>
             </Avatar>
-            {roleLabel && (
-              <span className={`absolute -bottom-1 -right-1 text-white text-[9px] font-medium px-1.5 py-0.5 rounded-full leading-none bg-neutral-600`}>
-                {roleLabel?.slice(0, 3).toUpperCase()}
+            {(activePermissions > 0 || isSuper) && (
+              <span className={`absolute -bottom-1 -right-1 text-white text-[9px] font-medium px-1.5 py-0.5 rounded-full leading-none ${isSuper ? 'bg-orange-500' : 'bg-neutral-600'}`}>
+                {isSuper ? "★" : activePermissions}
               </span>
             )}
           </div>
@@ -73,13 +72,13 @@ export function UserMenu() {
           <p className="text-xs text-neutral-500 truncate">
             {userEmail}
           </p>
-          {roleLabel ? (
-            <p className="text-xs text-neutral-600 font-medium mt-1">
-              {isSuper ? "★ " : ""}{roleLabel}
-            </p>
-          ) : isSuper ? (
+          {isSuper ? (
             <p className="text-xs text-orange-500 font-medium mt-1">
-              ★ Kalia
+              ★ Super Admin
+            </p>
+          ) : activePermissions > 0 ? (
+            <p className="text-xs text-neutral-600 font-medium mt-1">
+              {activePermissions} permisos activos
             </p>
           ) : null}
         </div>
@@ -111,4 +110,3 @@ export function UserMenu() {
     </DropdownMenu>
   );
 }
-

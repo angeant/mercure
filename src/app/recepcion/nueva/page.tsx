@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { Navbar } from "@/components/layout/navbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, ArrowLeft, Sparkles, CheckCircle2, AlertCircle } from "lucide-react";
+import { Loader2, ArrowLeft, Sparkles, CheckCircle2, AlertCircle, Calculator } from "lucide-react";
 import Link from "next/link";
 import { ImageCapture, CapturedImage } from "./image-capture";
 
@@ -83,6 +84,27 @@ interface EntityMatch {
 type RecipientStatus = 'pending' | 'found' | 'not_found' | 'new';
 
 export default function NuevaRecepcionPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-white">
+        <Navbar />
+        <main className="pt-12">
+          <div className="px-3 sm:px-4 py-4 flex items-center justify-center">
+            <Loader2 className="h-6 w-6 animate-spin text-neutral-400" />
+          </div>
+        </main>
+      </div>
+    }>
+      <NuevaRecepcionContent />
+    </Suspense>
+  );
+}
+
+function NuevaRecepcionContent() {
+  const searchParams = useSearchParams();
+  const mode = searchParams.get('mode'); // 'cotizar' para modo cotización
+  const isCotizarMode = mode === 'cotizar';
+  
   // Nueva gestión de imágenes con soporte para múltiples
   const [capturedImages, setCapturedImages] = useState<CapturedImage[]>([]);
   
@@ -249,15 +271,32 @@ export default function NuevaRecepcionPage() {
 
   // Recalcular precio cuando cambian datos de carga (con debounce)
   useEffect(() => {
-    if (recipientStatus !== 'found') return;
+    // En modo cotización, siempre recalcular. En modo normal, solo si encontró cliente
+    if (!isCotizarMode && recipientStatus !== 'found') return;
     
     const timer = setTimeout(() => {
-      detectPricing();
+      detectPricing(undefined, undefined, isCotizarMode);
     }, 500); // Debounce de 500ms
     
     return () => clearTimeout(timer);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formData.weightKg, formData.volumeM3, formData.declaredValue]);
+  }, [formData.weightKg, formData.volumeM3, formData.declaredValue, formData.recipientLocality, isCotizarMode]);
+  
+  // Prefill data from URL params
+  useEffect(() => {
+    const prefillParam = searchParams.get('prefill');
+    if (prefillParam) {
+      try {
+        const prefillData = JSON.parse(prefillParam);
+        setFormData(prev => ({
+          ...prev,
+          ...prefillData
+        }));
+      } catch (e) {
+        console.error('Error parsing prefill data:', e);
+      }
+    }
+  }, [searchParams]);
 
   const analyzeImages = async () => {
     if (!hasImages) {
@@ -518,59 +557,76 @@ export default function NuevaRecepcionPage() {
         <div className="px-3 sm:px-4 py-4">
           {/* Header */}
           <div className="flex items-center gap-3 border-b border-neutral-200 pb-3 mb-4">
-            <Link href="/recepcion">
+            <Link href={isCotizarMode ? "/tarifas" : "/recepcion"}>
               <Button variant="ghost" className="h-8 w-8 p-0">
                 <ArrowLeft className="h-4 w-4" />
               </Button>
             </Link>
             <h1 className="text-lg font-medium text-neutral-900">
-              Nueva Recepción
+              {isCotizarMode ? "Cotizar Envío" : "Nueva Recepción"}
             </h1>
-          </div>
-
-          {/* Captura de imágenes - Mobile optimizado */}
-          <div className="mb-4">
-            <ImageCapture
-              images={capturedImages}
-              onImagesChange={setCapturedImages}
-            />
-          </div>
-
-          {/* Botón analizar */}
-          <div className="mb-6">
-            <Button
-              onClick={analyzeImages}
-              disabled={isAnalyzing || !hasImages}
-              className="w-full h-10 bg-orange-500 hover:bg-orange-600 text-white rounded flex items-center justify-center gap-2"
-            >
-              {isAnalyzing ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Analizando imágenes...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="h-4 w-4" />
-                  Analizar con IA
-                </>
-              )}
-            </Button>
-            
-            {/* Panel de Thinking */}
-            {isAnalyzing && thinkingText && (
-              <div className="mt-3 p-3 bg-neutral-900 rounded border border-neutral-700 max-h-48 overflow-y-auto" ref={(el) => { if (el) el.scrollTop = el.scrollHeight; }}>
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
-                  <span className="text-xs font-medium text-neutral-400 uppercase tracking-wide">
-                    Kalia está pensando...
-                  </span>
-                </div>
-                <pre className="text-xs text-neutral-300 whitespace-pre-wrap font-mono leading-relaxed">
-                  {thinkingText}
-                </pre>
-              </div>
+            {isCotizarMode && (
+              <span className="text-xs text-neutral-400">Modo cotización - no guarda datos</span>
             )}
           </div>
+
+          {/* Captura de imágenes - Solo en modo recepción */}
+          {!isCotizarMode && (
+            <>
+              <div className="mb-4">
+                <ImageCapture
+                  images={capturedImages}
+                  onImagesChange={setCapturedImages}
+                />
+              </div>
+
+              {/* Botón analizar */}
+              <div className="mb-6">
+                <Button
+                  onClick={analyzeImages}
+                  disabled={isAnalyzing || !hasImages}
+                  className="w-full h-10 bg-orange-500 hover:bg-orange-600 text-white rounded flex items-center justify-center gap-2"
+                >
+                  {isAnalyzing ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Analizando imágenes...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-4 w-4" />
+                      Analizar con IA
+                    </>
+                  )}
+                </Button>
+                
+                {/* Panel de Thinking */}
+                {isAnalyzing && thinkingText && (
+                  <div className="mt-3 p-3 bg-neutral-900 rounded border border-neutral-700 max-h-48 overflow-y-auto" ref={(el) => { if (el) el.scrollTop = el.scrollHeight; }}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
+                      <span className="text-xs font-medium text-neutral-400 uppercase tracking-wide">
+                        Kalia está pensando...
+                      </span>
+                    </div>
+                    <pre className="text-xs text-neutral-300 whitespace-pre-wrap font-mono leading-relaxed">
+                      {thinkingText}
+                    </pre>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+          
+          {/* Instrucciones modo cotización */}
+          {isCotizarMode && (
+            <div className="mb-4 p-3 bg-neutral-50 border border-neutral-200 rounded flex items-center gap-2">
+              <Calculator className="h-4 w-4 text-neutral-400" />
+              <span className="text-sm text-neutral-600">
+                Completá los datos de la carga y el destino para ver el precio
+              </span>
+            </div>
+          )}
 
           {error && (
             <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-sm text-red-700">
@@ -1038,29 +1094,51 @@ export default function NuevaRecepcionPage() {
 
             {/* Acciones */}
             <div className="flex items-center justify-end gap-3 mt-4">
-              <Link href="/recepcion">
+              <Link href={isCotizarMode ? "/tarifas" : "/recepcion"}>
                 <Button
                   type="button"
                   variant="outline"
                   className="h-8 px-3 text-sm"
                 >
-                  Cancelar
+                  {isCotizarMode ? "Volver" : "Cancelar"}
                 </Button>
               </Link>
-              <Button
-                type="submit"
-                disabled={isSaving}
-                className="h-8 px-4 text-sm bg-neutral-900 hover:bg-neutral-800 text-white rounded"
-              >
-                {isSaving ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    Guardando...
-                  </>
-                ) : (
-                  "Registrar Recepción"
-                )}
-              </Button>
+              {isCotizarMode ? (
+                <Link href={`/recepcion/nueva?${new URLSearchParams({
+                  prefill: JSON.stringify({
+                    recipientName: formData.recipientName,
+                    recipientCuit: formData.recipientCuit,
+                    recipientAddress: formData.recipientAddress,
+                    recipientLocality: formData.recipientLocality,
+                    packageQuantity: formData.packageQuantity,
+                    weightKg: formData.weightKg,
+                    volumeM3: formData.volumeM3,
+                    declaredValue: formData.declaredValue,
+                  })
+                }).toString()}`}>
+                  <Button
+                    type="button"
+                    className="h-8 px-4 text-sm bg-orange-500 hover:bg-orange-600 text-white rounded"
+                  >
+                    Crear Remito con estos datos
+                  </Button>
+                </Link>
+              ) : (
+                <Button
+                  type="submit"
+                  disabled={isSaving}
+                  className="h-8 px-4 text-sm bg-neutral-900 hover:bg-neutral-800 text-white rounded"
+                >
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      Guardando...
+                    </>
+                  ) : (
+                    "Registrar Recepción"
+                  )}
+                </Button>
+              )}
             </div>
           </form>
         </div>

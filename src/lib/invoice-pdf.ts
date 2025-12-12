@@ -342,7 +342,11 @@ export async function generateInvoicePdf(params: InvoicePdfParams): Promise<Buff
     args: ['--no-sandbox', '--disable-setuid-sandbox'] 
   });
   const page = await browser.newPage();
-  await page.setContent(html, { waitUntil: 'networkidle0' });
+  await page.setContent(html, { waitUntil: 'domcontentloaded', timeout: 10000 });
+  
+  // Esperar un poco para que cargue el QR
+  await new Promise(resolve => setTimeout(resolve, 2000));
+  
   const pdfBuffer = await page.pdf({ 
     format: 'A4', 
     printBackground: true,

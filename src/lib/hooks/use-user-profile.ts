@@ -5,20 +5,20 @@ import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { 
   Permission, 
+  UserPermissions,
   hasPermission, 
   canAccessRoute, 
   getAccessibleModules,
   isSuperAdmin 
 } from "@/lib/permissions";
 
-interface MercureUserRole {
-  user_id: string;
-  role: string;
+interface UserPermissionRow {
+  permission: string;
+  has_access: boolean;
 }
 
 interface UserProfileData {
-  mercureRole: MercureUserRole | null;
-  role: string | null;
+  permissions: UserPermissions;
   email: string | null;
   isLoading: boolean;
   error: Error | null;
@@ -27,36 +27,37 @@ interface UserProfileData {
   can: (permission: Permission) => boolean;
   canAccessRoute: (pathname: string) => boolean;
   accessibleModules: Permission[];
+  // Para compatibilidad legacy (deprecated)
+  role: string | null;
 }
 
 export function useUserProfile(): UserProfileData {
   const { user: clerkUser, isLoaded } = useUser();
   const [data, setData] = useState<{
-    mercureRole: MercureUserRole | null;
+    permissions: UserPermissions;
     isLoading: boolean;
     error: Error | null;
   }>({
-    mercureRole: null,
+    permissions: {},
     isLoading: true,
     error: null,
   });
 
   const userEmail = clerkUser?.emailAddresses[0]?.emailAddress || null;
-  const role = data.mercureRole?.role || null;
   const isSuper = isSuperAdmin(userEmail);
 
   // Método para verificar permisos
   const can = useCallback((permission: Permission): boolean => {
-    return hasPermission(role, userEmail, permission);
-  }, [role, userEmail]);
+    return hasPermission(data.permissions, userEmail, permission);
+  }, [data.permissions, userEmail]);
 
   // Método para verificar acceso a rutas
   const canAccessRouteFn = useCallback((pathname: string): boolean => {
-    return canAccessRoute(role, userEmail, pathname);
-  }, [role, userEmail]);
+    return canAccessRoute(data.permissions, userEmail, pathname);
+  }, [data.permissions, userEmail]);
 
   // Módulos accesibles
-  const accessibleModules = getAccessibleModules(role, userEmail);
+  const accessibleModules = getAccessibleModules(data.permissions, userEmail);
 
   useEffect(() => {
     async function fetchUserProfile() {
@@ -75,40 +76,45 @@ export function useUserProfile(): UserProfileData {
 
         if (userError) {
           console.error("Error fetching user:", userError);
-          setData({ mercureRole: null, isLoading: false, error: null });
+          setData({ permissions: {}, isLoading: false, error: null });
           return;
         }
 
         const userData = usersData?.[0];
         if (!userData) {
           // Usuario no existe en la tabla users - no es error, solo no tiene perfil
-          setData({ mercureRole: null, isLoading: false, error: null });
+          setData({ permissions: {}, isLoading: false, error: null });
           return;
         }
 
-        // Buscar el rol en mercure_user_roles
-        const { data: rolesData, error: roleError } = await supabase
-          .from("mercure_user_roles")
-          .select("user_id, role")
+        // Buscar los permisos en mercure_user_permissions
+        const { data: permissionsData, error: permError } = await supabase
+          .from("mercure_user_permissions")
+          .select("permission, has_access")
           .eq("user_id", userData.id)
-          .eq("is_active", true)
-          .limit(1);
+          .eq("has_access", true);
 
-        if (roleError) {
-          console.error("Error fetching mercure role:", roleError);
-          setData({ mercureRole: null, isLoading: false, error: null });
+        if (permError) {
+          console.error("Error fetching user permissions:", permError);
+          setData({ permissions: {}, isLoading: false, error: null });
           return;
         }
+
+        // Convertir array de permisos a objeto
+        const permissions: UserPermissions = {};
+        (permissionsData as UserPermissionRow[] || []).forEach((p) => {
+          permissions[p.permission] = p.has_access;
+        });
 
         setData({
-          mercureRole: rolesData?.[0] || null,
+          permissions,
           isLoading: false,
           error: null,
         });
       } catch (error) {
         console.error("Error in useUserProfile:", error);
         setData({
-          mercureRole: null,
+          permissions: {},
           isLoading: false,
           error: null,
         });
@@ -120,16 +126,17 @@ export function useUserProfile(): UserProfileData {
 
   return {
     ...data,
-    role,
     email: userEmail,
     isSuperAdmin: isSuper,
     can,
     canAccessRoute: canAccessRouteFn,
     accessibleModules,
+    // Legacy: devolver null como role para compatibilidad
+    role: null,
   };
 }
 
-// Labels para roles
+// Labels para roles (legacy, mantener para UI)
 export const ROLE_LABELS: Record<string, string> = {
   admin: "Administrador",
   owner: "Propietario",

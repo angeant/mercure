@@ -54,7 +54,7 @@ export default async function TarifasPage() {
                   Nueva Tarifa
                 </Button>
               </Link>
-              <Link href="/tarifas/cotizar">
+              <Link href="/recepcion/nueva?mode=cotizar">
                 <Button className="h-8 px-3 text-sm bg-orange-500 hover:bg-orange-600 text-white rounded">
                   Cotizar
                 </Button>
