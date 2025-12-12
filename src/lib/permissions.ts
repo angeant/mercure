@@ -51,13 +51,13 @@ export const PERMISSIONS = {
   // Tarifas y cotizaciones
   tarifas: ["super_admin", "admin", "administrativo"],
   
-  // Administración
-  cuentas_corrientes: ["super_admin", "admin", "contabilidad"],
-  facturas: ["super_admin", "admin", "contabilidad"],
-  cobranzas: ["super_admin", "admin", "contabilidad"],
-  liquidaciones: ["super_admin", "admin", "contabilidad"],
-  pagos: ["super_admin", "admin", "contabilidad"],
-  contabilidad: ["super_admin", "admin", "contabilidad"],
+  // Administración (administrativo tiene acceso a todo menos RRHH)
+  cuentas_corrientes: ["super_admin", "admin", "administrativo", "contabilidad"],
+  facturas: ["super_admin", "admin", "administrativo", "contabilidad"],
+  cobranzas: ["super_admin", "admin", "administrativo", "contabilidad"],
+  liquidaciones: ["super_admin", "admin", "administrativo", "contabilidad"],
+  pagos: ["super_admin", "admin", "administrativo", "contabilidad"],
+  contabilidad: ["super_admin", "admin", "administrativo", "contabilidad"],
   
   // RRHH
   personal: ["super_admin", "admin"],

@@ -296,56 +296,75 @@ export default async function ConfiguracionPage() {
             </div>
           </div>
 
-          {/* Roles y permisos */}
+          {/* Roles y permisos - Matriz por áreas */}
           <div>
             <h2 className="text-xs font-medium text-neutral-500 uppercase tracking-wide mb-3">
               Roles y Permisos
             </h2>
             <div className="border border-neutral-200 rounded overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="w-full text-sm min-w-[450px]">
+                <table className="w-full text-xs min-w-[800px]">
                   <thead>
                     <tr className="bg-neutral-50 border-b border-neutral-200">
-                      <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Rol</th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Descripción</th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Accesos</th>
+                      <th className="px-2 py-2 text-left font-medium text-neutral-500 uppercase w-32">Rol</th>
+                      <th className="px-2 py-2 text-center font-medium text-neutral-500 uppercase border-l border-neutral-200">Operaciones</th>
+                      <th className="px-2 py-2 text-center font-medium text-neutral-500 uppercase border-l border-neutral-200">Administración</th>
+                      <th className="px-2 py-2 text-center font-medium text-neutral-500 uppercase border-l border-neutral-200">RRHH</th>
+                      <th className="px-2 py-2 text-center font-medium text-neutral-500 uppercase border-l border-neutral-200">Marketing</th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr className="border-b border-neutral-100">
-                      <td className="px-3 py-2 font-medium">Administrador</td>
-                      <td className="px-3 py-2 text-neutral-600">Gestión completa</td>
-                      <td className="px-3 py-2"><Badge variant="success">Todo</Badge></td>
+                      <td className="px-2 py-2 font-medium">Administrador</td>
+                      <td className="px-2 py-2 text-center border-l border-neutral-100"><Badge variant="success">✓</Badge></td>
+                      <td className="px-2 py-2 text-center border-l border-neutral-100"><Badge variant="success">✓</Badge></td>
+                      <td className="px-2 py-2 text-center border-l border-neutral-100"><Badge variant="success">✓</Badge></td>
+                      <td className="px-2 py-2 text-center border-l border-neutral-100"><Badge variant="success">✓</Badge></td>
+                    </tr>
+                    <tr className="border-b border-neutral-100 bg-orange-50">
+                      <td className="px-2 py-2 font-medium">Administrativo</td>
+                      <td className="px-2 py-2 text-center border-l border-neutral-100"><Badge variant="success">✓</Badge></td>
+                      <td className="px-2 py-2 text-center border-l border-neutral-100"><Badge variant="success">✓</Badge></td>
+                      <td className="px-2 py-2 text-center border-l border-neutral-100"><Badge variant="error">✗</Badge></td>
+                      <td className="px-2 py-2 text-center border-l border-neutral-100"><Badge variant="error">✗</Badge></td>
                     </tr>
                     <tr className="border-b border-neutral-100">
-                      <td className="px-3 py-2 font-medium">Administrativo</td>
-                      <td className="px-3 py-2 text-neutral-600">Operaciones, viajes</td>
-                      <td className="px-3 py-2 text-xs text-neutral-500">Recepción, Envíos, Viajes</td>
+                      <td className="px-2 py-2 font-medium">Aux. Depósito</td>
+                      <td className="px-2 py-2 text-center border-l border-neutral-100 text-neutral-500">Recep/Envíos</td>
+                      <td className="px-2 py-2 text-center border-l border-neutral-100"><Badge variant="error">✗</Badge></td>
+                      <td className="px-2 py-2 text-center border-l border-neutral-100"><Badge variant="error">✗</Badge></td>
+                      <td className="px-2 py-2 text-center border-l border-neutral-100"><Badge variant="error">✗</Badge></td>
                     </tr>
                     <tr className="border-b border-neutral-100">
-                      <td className="px-3 py-2 font-medium">Aux. Depósito</td>
-                      <td className="px-3 py-2 text-neutral-600">Control físico</td>
-                      <td className="px-3 py-2 text-xs text-neutral-500">Recepción, Envíos</td>
+                      <td className="px-2 py-2 font-medium">Chofer</td>
+                      <td className="px-2 py-2 text-center border-l border-neutral-100 text-neutral-500">Envíos/Viajes</td>
+                      <td className="px-2 py-2 text-center border-l border-neutral-100"><Badge variant="error">✗</Badge></td>
+                      <td className="px-2 py-2 text-center border-l border-neutral-100"><Badge variant="error">✗</Badge></td>
+                      <td className="px-2 py-2 text-center border-l border-neutral-100"><Badge variant="error">✗</Badge></td>
                     </tr>
                     <tr className="border-b border-neutral-100">
-                      <td className="px-3 py-2 font-medium">Chofer</td>
-                      <td className="px-3 py-2 text-neutral-600">Entregas</td>
-                      <td className="px-3 py-2 text-xs text-neutral-500">Envíos, Viajes</td>
-                    </tr>
-                    <tr className="border-b border-neutral-100">
-                      <td className="px-3 py-2 font-medium">Atención Cliente</td>
-                      <td className="px-3 py-2 text-neutral-600">Consultas</td>
-                      <td className="px-3 py-2 text-xs text-neutral-500">Entidades, Dashboard</td>
+                      <td className="px-2 py-2 font-medium">At. Cliente</td>
+                      <td className="px-2 py-2 text-center border-l border-neutral-100 text-neutral-500">Entidades</td>
+                      <td className="px-2 py-2 text-center border-l border-neutral-100"><Badge variant="error">✗</Badge></td>
+                      <td className="px-2 py-2 text-center border-l border-neutral-100"><Badge variant="error">✗</Badge></td>
+                      <td className="px-2 py-2 text-center border-l border-neutral-100"><Badge variant="success">✓</Badge></td>
                     </tr>
                     <tr className="border-b border-neutral-100 last:border-0">
-                      <td className="px-3 py-2 font-medium">Contabilidad</td>
-                      <td className="px-3 py-2 text-neutral-600">Facturación</td>
-                      <td className="px-3 py-2 text-xs text-neutral-500">CC, Facturas, Cobranzas</td>
+                      <td className="px-2 py-2 font-medium">Contabilidad</td>
+                      <td className="px-2 py-2 text-center border-l border-neutral-100"><Badge variant="error">✗</Badge></td>
+                      <td className="px-2 py-2 text-center border-l border-neutral-100"><Badge variant="success">✓</Badge></td>
+                      <td className="px-2 py-2 text-center border-l border-neutral-100"><Badge variant="error">✗</Badge></td>
+                      <td className="px-2 py-2 text-center border-l border-neutral-100"><Badge variant="error">✗</Badge></td>
                     </tr>
                   </tbody>
                 </table>
               </div>
             </div>
+            <p className="text-xs text-neutral-400 mt-2">
+              <strong>Operaciones:</strong> Recepción, Envíos, Viajes, Vehículos, Arribo, Reparto · 
+              <strong> Administración:</strong> Entidades, Tarifas, Facturas, CC, Cobranzas, Pagos · 
+              <strong> RRHH:</strong> Personal, Asistencia, Vacaciones, Legajos
+            </p>
           </div>
 
           {/* Info */}
