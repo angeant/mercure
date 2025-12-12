@@ -212,11 +212,11 @@ export default async function ConfiguracionPage() {
     <div className="min-h-screen bg-white">
       <Navbar />
       <main className="pt-12">
-        <div className="px-4 py-4 max-w-4xl">
-          <div className="flex items-center justify-between border-b border-neutral-200 pb-3 mb-4">
+        <div className="px-3 sm:px-4 py-4 max-w-4xl">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-neutral-200 pb-3 mb-4 gap-2">
             <div>
               <h1 className="text-lg font-medium text-neutral-900">Configuración</h1>
-              <p className="text-sm text-neutral-500 mt-0.5">Gestión de usuarios y permisos de Mercure</p>
+              <p className="text-xs sm:text-sm text-neutral-500 mt-0.5">Gestión de usuarios y permisos</p>
             </div>
           </div>
 
@@ -229,68 +229,70 @@ export default async function ConfiguracionPage() {
             </div>
 
             <div className="border border-neutral-200 rounded overflow-hidden">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-neutral-50 border-b border-neutral-200">
-                    <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Usuario</th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Email</th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Rol en Mercure</th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Desde</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {mercureUsers.length === 0 ? (
-                    <tr>
-                      <td colSpan={4} className="px-3 py-8 text-center text-neutral-400">
-                        No hay usuarios en el equipo de Mercure
-                      </td>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm min-w-[500px]">
+                  <thead>
+                    <tr className="bg-neutral-50 border-b border-neutral-200">
+                      <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Usuario</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Email</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Rol</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Desde</th>
                     </tr>
-                  ) : (
-                    mercureUsers.map((u) => (
-                      <tr key={u.id} className="border-b border-neutral-100 last:border-0 hover:bg-neutral-50">
-                        <td className="px-3 py-2">
-                          <div className="flex items-center gap-2">
-                            {u.image_url ? (
-                              <img 
-                                src={u.image_url} 
-                                alt={u.full_name || u.email}
-                                className="w-7 h-7 rounded-full object-cover"
-                              />
-                            ) : (
-                              <div className="w-7 h-7 rounded-full bg-neutral-200 flex items-center justify-center text-xs font-medium text-neutral-600">
-                                {getInitials(u.full_name, u.email)}
-                              </div>
-                            )}
-                            <span className="font-medium text-neutral-900">
-                              {u.full_name || u.email?.split("@")[0] || "Sin nombre"}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-3 py-2 text-neutral-600">
-                          {u.email || "-"}
-                          {isSuper && u.is_kalia && (
-                            <span className="ml-1.5 text-orange-500 text-xs">★</span>
-                          )}
-                        </td>
-                        <td className="px-3 py-2">
-                          {u.is_kalia && isSuper ? (
-                            <Badge variant="success">Super Admin</Badge>
-                          ) : u.role ? (
-                            <Badge variant={getRoleBadgeVariant(u.role)}>
-                              {ROLES[u.role as keyof typeof ROLES] || u.role}
-                            </Badge>
-                          ) : (
-                            <span className="text-neutral-400 text-xs">-</span>
-                          )}
-                        </td>
-                        <td className="px-3 py-2 text-neutral-400 text-xs">
-                          {u.created_at ? new Date(u.created_at).toLocaleDateString("es-AR") : "-"}
+                  </thead>
+                  <tbody>
+                    {mercureUsers.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="px-3 py-8 text-center text-neutral-400">
+                          No hay usuarios en el equipo
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+                    ) : (
+                      mercureUsers.map((u) => (
+                        <tr key={u.id} className="border-b border-neutral-100 last:border-0 hover:bg-neutral-50">
+                          <td className="px-3 py-2">
+                            <div className="flex items-center gap-2">
+                              {u.image_url ? (
+                                <img 
+                                  src={u.image_url} 
+                                  alt={u.full_name || u.email}
+                                  className="w-7 h-7 rounded-full object-cover shrink-0"
+                                />
+                              ) : (
+                                <div className="w-7 h-7 rounded-full bg-neutral-200 flex items-center justify-center text-xs font-medium text-neutral-600 shrink-0">
+                                  {getInitials(u.full_name, u.email)}
+                                </div>
+                              )}
+                              <span className="font-medium text-neutral-900 truncate max-w-[100px]">
+                                {u.full_name || u.email?.split("@")[0] || "Sin nombre"}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-3 py-2 text-neutral-600 text-xs sm:text-sm truncate max-w-[150px]">
+                            {u.email || "-"}
+                            {isSuper && u.is_kalia && (
+                              <span className="ml-1.5 text-orange-500 text-xs">★</span>
+                            )}
+                          </td>
+                          <td className="px-3 py-2">
+                            {u.is_kalia && isSuper ? (
+                              <Badge variant="success">Super Admin</Badge>
+                            ) : u.role ? (
+                              <Badge variant={getRoleBadgeVariant(u.role)}>
+                                {ROLES[u.role as keyof typeof ROLES] || u.role}
+                              </Badge>
+                            ) : (
+                              <span className="text-neutral-400 text-xs">-</span>
+                            )}
+                          </td>
+                          <td className="px-3 py-2 text-neutral-400 text-xs whitespace-nowrap">
+                            {u.created_at ? new Date(u.created_at).toLocaleDateString("es-AR") : "-"}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
 
@@ -300,52 +302,54 @@ export default async function ConfiguracionPage() {
               Roles y Permisos
             </h2>
             <div className="border border-neutral-200 rounded overflow-hidden">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-neutral-50 border-b border-neutral-200">
-                    <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Rol</th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Descripción</th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Accesos</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr className="border-b border-neutral-100">
-                    <td className="px-3 py-2 font-medium">Administrador</td>
-                    <td className="px-3 py-2 text-neutral-600">Gestión completa de Mercure</td>
-                    <td className="px-3 py-2"><Badge variant="success">Todo</Badge></td>
-                  </tr>
-                  <tr className="border-b border-neutral-100">
-                    <td className="px-3 py-2 font-medium">Administrativo</td>
-                    <td className="px-3 py-2 text-neutral-600">Operaciones, viajes, tarifas</td>
-                    <td className="px-3 py-2 text-xs text-neutral-500">Recepción, Envíos, Viajes, Vehículos, Entidades, Tarifas</td>
-                  </tr>
-                  <tr className="border-b border-neutral-100">
-                    <td className="px-3 py-2 font-medium">Auxiliar Depósito</td>
-                    <td className="px-3 py-2 text-neutral-600">Control físico de mercadería</td>
-                    <td className="px-3 py-2 text-xs text-neutral-500">Recepción, Envíos</td>
-                  </tr>
-                  <tr className="border-b border-neutral-100">
-                    <td className="px-3 py-2 font-medium">Chofer</td>
-                    <td className="px-3 py-2 text-neutral-600">Transporte y entregas</td>
-                    <td className="px-3 py-2 text-xs text-neutral-500">Envíos, Viajes</td>
-                  </tr>
-                  <tr className="border-b border-neutral-100">
-                    <td className="px-3 py-2 font-medium">Atención al Cliente</td>
-                    <td className="px-3 py-2 text-neutral-600">Consultas y seguimiento</td>
-                    <td className="px-3 py-2 text-xs text-neutral-500">Entidades, Dashboard</td>
-                  </tr>
-                  <tr className="border-b border-neutral-100 last:border-0">
-                    <td className="px-3 py-2 font-medium">Contabilidad</td>
-                    <td className="px-3 py-2 text-neutral-600">Facturación y cobranzas</td>
-                    <td className="px-3 py-2 text-xs text-neutral-500">CC, Facturas, Cobranzas, Liquidaciones, Pagos</td>
-                  </tr>
-                </tbody>
-              </table>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm min-w-[450px]">
+                  <thead>
+                    <tr className="bg-neutral-50 border-b border-neutral-200">
+                      <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Rol</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Descripción</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Accesos</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr className="border-b border-neutral-100">
+                      <td className="px-3 py-2 font-medium">Administrador</td>
+                      <td className="px-3 py-2 text-neutral-600">Gestión completa</td>
+                      <td className="px-3 py-2"><Badge variant="success">Todo</Badge></td>
+                    </tr>
+                    <tr className="border-b border-neutral-100">
+                      <td className="px-3 py-2 font-medium">Administrativo</td>
+                      <td className="px-3 py-2 text-neutral-600">Operaciones, viajes</td>
+                      <td className="px-3 py-2 text-xs text-neutral-500">Recepción, Envíos, Viajes</td>
+                    </tr>
+                    <tr className="border-b border-neutral-100">
+                      <td className="px-3 py-2 font-medium">Aux. Depósito</td>
+                      <td className="px-3 py-2 text-neutral-600">Control físico</td>
+                      <td className="px-3 py-2 text-xs text-neutral-500">Recepción, Envíos</td>
+                    </tr>
+                    <tr className="border-b border-neutral-100">
+                      <td className="px-3 py-2 font-medium">Chofer</td>
+                      <td className="px-3 py-2 text-neutral-600">Entregas</td>
+                      <td className="px-3 py-2 text-xs text-neutral-500">Envíos, Viajes</td>
+                    </tr>
+                    <tr className="border-b border-neutral-100">
+                      <td className="px-3 py-2 font-medium">Atención Cliente</td>
+                      <td className="px-3 py-2 text-neutral-600">Consultas</td>
+                      <td className="px-3 py-2 text-xs text-neutral-500">Entidades, Dashboard</td>
+                    </tr>
+                    <tr className="border-b border-neutral-100 last:border-0">
+                      <td className="px-3 py-2 font-medium">Contabilidad</td>
+                      <td className="px-3 py-2 text-neutral-600">Facturación</td>
+                      <td className="px-3 py-2 text-xs text-neutral-500">CC, Facturas, Cobranzas</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
 
           {/* Info */}
-          <div className="mt-6 bg-neutral-50 border border-neutral-200 rounded p-4">
+          <div className="mt-6 bg-neutral-50 border border-neutral-200 rounded p-3 sm:p-4">
             <p className="text-xs text-neutral-500">
               Los permisos se aplican automáticamente según el rol asignado.
             </p>
@@ -354,7 +358,7 @@ export default async function ConfiguracionPage() {
           {/* Sección exclusiva para Super Admins */}
           {isSuper && (
             <div className="mt-8 pt-6 border-t border-orange-200">
-              <div className="flex items-center gap-2 mb-4">
+              <div className="flex flex-wrap items-center gap-2 mb-4">
                 <span className="text-orange-500 text-lg">★</span>
                 <h2 className="text-sm font-medium text-neutral-900">
                   Panel Super Admin
@@ -363,8 +367,7 @@ export default async function ConfiguracionPage() {
               </div>
               
               <p className="text-xs text-neutral-500 mb-4">
-                Desde aquí podés asignar roles a cualquier usuario de la plataforma.
-                Los usuarios sin rol asignado no aparecen en el equipo de Mercure.
+                Desde aquí podés asignar roles a cualquier usuario.
               </p>
 
               <RoleForm 

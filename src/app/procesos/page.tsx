@@ -19,19 +19,19 @@ const processes = [
 ];
 
 const summarySteps = [
-  "Recibir carga, controlar, sellar o anotar diferencias",
-  "Registrar en sistema → disponible para despacho",
-  "Armar viaje por destino/prioridad, validar capacidad",
-  "Emitir Guía/Carta de Porte, chofer firma salida",
-  "Cargar según orden de descarga",
-  "Salir, seguimiento GPS/comunicación",
-  "Destino: firma conforme, entregar copia",
-  "Marcar entregado, archivar remitos",
-  "CC: liquidación fin de mes, factura mes siguiente",
-  "Contado: facturar y cobrar",
-  "Enviar facturas, día 10+ gestión cobro",
-  "ARCA→contable, imputar, conciliar",
-  "IVA, sueldos, bancos, proveedores",
+  "Recibir carga, controlar, sellar",
+  "Registrar → disponible",
+  "Armar viaje, validar",
+  "Emitir Guía, firma salida",
+  "Cargar en orden",
+  "Salir, GPS",
+  "Firma conforme, entregar copia",
+  "Marcar entregado",
+  "Liquidación, factura",
+  "Facturar y cobrar",
+  "Gestión cobro",
+  "ARCA→contable",
+  "IVA, sueldos, bancos",
 ];
 
 export default async function ProcesosPage() {
@@ -41,7 +41,7 @@ export default async function ProcesosPage() {
     <div className="min-h-screen bg-white">
       <Navbar />
       <main className="pt-12">
-        <div className="px-4 py-4 max-w-4xl">
+        <div className="px-3 sm:px-4 py-4 max-w-4xl">
           <div className="border-b border-neutral-200 pb-3 mb-4">
             <h1 className="text-lg font-medium text-neutral-900">Procesos</h1>
           </div>
@@ -50,7 +50,7 @@ export default async function ProcesosPage() {
           <div className="mb-6">
             <h2 className="text-xs font-medium text-neutral-500 uppercase tracking-wide mb-2">Resumen Operativo</h2>
             <div className="border border-neutral-200 rounded p-3">
-              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
+              <div className="flex flex-wrap gap-x-3 sm:gap-x-4 gap-y-1 text-xs">
                 {summarySteps.map((step, i) => (
                   <span key={i} className="text-neutral-600">
                     <span className="text-orange-500 font-medium">{String.fromCharCode(97 + i)})</span> {step}
@@ -75,11 +75,10 @@ export default async function ProcesosPage() {
           </div>
 
           {/* Cierre */}
-          <div className="mt-6 bg-zinc-900 text-white rounded p-4">
+          <div className="mt-6 bg-zinc-900 text-white rounded p-3 sm:p-4">
             <h2 className="text-sm font-medium mb-2">Cierre</h2>
             <p className="text-xs text-zinc-300">
               Ciclo: recibir → validar → planificar → documentar → cargar → transportar → entregar → marcar → liquidar → facturar → cobrar → imputar → conciliar.
-              Trazabilidad: remito sellado + conforme destino + consistencia Sisorg/docs/contabilidad.
             </p>
           </div>
         </div>
@@ -87,4 +86,3 @@ export default async function ProcesosPage() {
     </div>
   );
 }
-

@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Navbar } from "@/components/layout/navbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Camera, Loader2, X, ArrowLeft, Sparkles, ImageIcon, CheckCircle2, AlertCircle } from "lucide-react";
+import { Loader2, ArrowLeft, Sparkles, CheckCircle2, AlertCircle } from "lucide-react";
 import Link from "next/link";
+import { ImageCapture, CapturedImage } from "./image-capture";
 
 interface AnalysisData {
   deliveryNoteNumber: string | null;
@@ -82,18 +83,21 @@ interface EntityMatch {
 type RecipientStatus = 'pending' | 'found' | 'not_found' | 'new';
 
 export default function NuevaRecepcionPage() {
-  const [remitoImage, setRemitoImage] = useState<File | null>(null);
-  const [remitoPreview, setRemitoPreview] = useState<string | null>(null);
-  const [cargaImage, setCargaImage] = useState<File | null>(null);
-  const [cargaPreview, setCargaPreview] = useState<string | null>(null);
+  // Nueva gestión de imágenes con soporte para múltiples
+  const [capturedImages, setCapturedImages] = useState<CapturedImage[]>([]);
+  
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [analyzed, setAnalyzed] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
   const [thinkingText, setThinkingText] = useState<string>("");
   const [needsReview, setNeedsReview] = useState<Record<string, boolean>>({});
   const [reviewReasons, setReviewReasons] = useState<Record<string, string>>({});
+  
+  // Helpers para acceder a imágenes
+  const remitoImages = capturedImages.filter(img => img.type === 'remito');
+  const cargaImages = capturedImages.filter(img => img.type === 'carga');
+  const hasImages = capturedImages.length > 0;
 
   // Estado para destinatario (cliente)
   const [recipientStatus, setRecipientStatus] = useState<RecipientStatus>('pending');
@@ -133,8 +137,6 @@ export default function NuevaRecepcionPage() {
     recipientAddress: false,
   });
 
-  const dropZoneRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState<FormData>({
     // Remito
@@ -177,76 +179,6 @@ export default function NuevaRecepcionPage() {
     return baseClass;
   };
 
-  const processFiles = useCallback((files: FileList | File[]) => {
-    const imageFiles = Array.from(files).filter(file => 
-      file.type.startsWith('image/')
-    ).slice(0, 2); // Máximo 2 imágenes
-
-    imageFiles.forEach((file, index) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        if (index === 0) {
-          // Primera imagen -> Remito
-          setRemitoImage(file);
-          setRemitoPreview(reader.result as string);
-        } else if (index === 1) {
-          // Segunda imagen -> Carga
-          setCargaImage(file);
-          setCargaPreview(reader.result as string);
-        }
-      };
-      reader.readAsDataURL(file);
-    });
-  }, []);
-
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(true);
-  }, []);
-
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
-  }, []);
-
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
-    
-    const files = e.dataTransfer.files;
-    if (files.length > 0) {
-      processFiles(files);
-    }
-  }, [processFiles]);
-
-  const handleFileInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files && files.length > 0) {
-      processFiles(files);
-    }
-  }, [processFiles]);
-
-  const removeImage = (type: "remito" | "carga") => {
-    if (type === "remito") {
-      setRemitoImage(null);
-      setRemitoPreview(null);
-    } else {
-      setCargaImage(null);
-      setCargaPreview(null);
-    }
-  };
-
-  const swapImages = () => {
-    const tempImage = remitoImage;
-    const tempPreview = remitoPreview;
-    setRemitoImage(cargaImage);
-    setRemitoPreview(cargaPreview);
-    setCargaImage(tempImage);
-    setCargaPreview(tempPreview);
-  };
 
   // Buscar entidad por CUIT o nombre
   const searchEntity = async (cuit: string | null, name: string | null): Promise<{
@@ -328,7 +260,7 @@ export default function NuevaRecepcionPage() {
   }, [formData.weightKg, formData.volumeM3, formData.declaredValue]);
 
   const analyzeImages = async () => {
-    if (!remitoImage && !cargaImage) {
+    if (!hasImages) {
       setError("Cargá al menos una imagen para analizar");
       return;
     }
@@ -343,8 +275,27 @@ export default function NuevaRecepcionPage() {
 
     try {
       const formDataToSend = new FormData();
-      if (remitoImage) formDataToSend.append("remito", remitoImage);
-      if (cargaImage) formDataToSend.append("carga", cargaImage);
+      
+      // Agregar todas las imágenes de remito
+      remitoImages.forEach((img, idx) => {
+        formDataToSend.append(`remito_${idx}`, img.file);
+      });
+      
+      // Agregar todas las imágenes de carga con metadata
+      cargaImages.forEach((img, idx) => {
+        formDataToSend.append(`carga_${idx}`, img.file);
+        if (img.cargoMeta) {
+          formDataToSend.append(`carga_${idx}_meta`, JSON.stringify(img.cargoMeta));
+        }
+      });
+      
+      // Mantener compatibilidad con API actual (primera de cada tipo)
+      if (remitoImages.length > 0) {
+        formDataToSend.append("remito", remitoImages[0].file);
+      }
+      if (cargaImages.length > 0) {
+        formDataToSend.append("carga", cargaImages[0].file);
+      }
 
       const response = await fetch("/api/analyze-reception", {
         method: "POST",
@@ -524,8 +475,21 @@ export default function NuevaRecepcionPage() {
       // Preparar FormData para enviar
       const formDataToSend = new FormData();
       formDataToSend.append("data", JSON.stringify(formData));
-      if (remitoImage) formDataToSend.append("remito", remitoImage);
-      if (cargaImage) formDataToSend.append("carga", cargaImage);
+      
+      // Agregar todas las imágenes
+      remitoImages.forEach((img, idx) => {
+        formDataToSend.append(`remito_${idx}`, img.file);
+      });
+      cargaImages.forEach((img, idx) => {
+        formDataToSend.append(`carga_${idx}`, img.file);
+        if (img.cargoMeta) {
+          formDataToSend.append(`carga_${idx}_meta`, JSON.stringify(img.cargoMeta));
+        }
+      });
+      
+      // Compatibilidad con API actual
+      if (remitoImages.length > 0) formDataToSend.append("remito", remitoImages[0].file);
+      if (cargaImages.length > 0) formDataToSend.append("carga", cargaImages[0].file);
 
       const response = await fetch("/api/save-reception", {
         method: "POST",
@@ -551,7 +515,7 @@ export default function NuevaRecepcionPage() {
     <div className="min-h-screen bg-white">
       <Navbar />
       <main className="pt-12">
-        <div className="px-4 py-4">
+        <div className="px-3 sm:px-4 py-4">
           {/* Header */}
           <div className="flex items-center gap-3 border-b border-neutral-200 pb-3 mb-4">
             <Link href="/recepcion">
@@ -564,159 +528,19 @@ export default function NuevaRecepcionPage() {
             </h1>
           </div>
 
-          {/* Zona de Drop Unificada */}
+          {/* Captura de imágenes - Mobile optimizado */}
           <div className="mb-4">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              multiple
-              onChange={handleFileInput}
-              className="hidden"
-              id="file-input"
+            <ImageCapture
+              images={capturedImages}
+              onImagesChange={setCapturedImages}
             />
-            
-            {/* Si no hay imágenes, mostrar zona de drop grande */}
-            {!remitoPreview && !cargaPreview ? (
-              <div
-                ref={dropZoneRef}
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-                onClick={() => fileInputRef.current?.click()}
-                className={`
-                  flex flex-col items-center justify-center p-8 rounded border-2 border-dashed cursor-pointer transition-colors
-                  ${isDragging 
-                    ? 'border-orange-400 bg-orange-50' 
-                    : 'border-neutral-300 bg-neutral-50 hover:bg-neutral-100 hover:border-neutral-400'
-                  }
-                `}
-              >
-                <div className="flex items-center gap-4 mb-3">
-                  <div className="w-12 h-12 rounded-full bg-neutral-200 flex items-center justify-center">
-                    <Camera className="h-6 w-6 text-neutral-500" />
-                  </div>
-                  <div className="w-12 h-12 rounded-full bg-neutral-200 flex items-center justify-center">
-                    <ImageIcon className="h-6 w-6 text-neutral-500" />
-                  </div>
-                </div>
-                <p className="text-sm font-medium text-neutral-700 mb-1">
-                  Arrastrá las fotos del remito y la carga
-                </p>
-                <p className="text-xs text-neutral-500">
-                  O hacé click para seleccionar (máximo 2 imágenes)
-                </p>
-              </div>
-            ) : (
-              /* Si hay imágenes, mostrar previews con zona de drop reducida */
-              <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-3">
-                  {/* Remito */}
-                  <div className="border border-neutral-200 rounded p-2">
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-xs font-medium text-neutral-500 uppercase tracking-wide">
-                        Remito
-                      </span>
-                      <div className="flex items-center gap-1">
-                        {remitoPreview && cargaPreview && (
-                          <button
-                            onClick={swapImages}
-                            className="text-xs text-neutral-400 hover:text-neutral-600 px-1"
-                            title="Intercambiar"
-                          >
-                            ⇄
-                          </button>
-                        )}
-                        {remitoPreview && (
-                          <button
-                            onClick={() => removeImage("remito")}
-                            className="text-neutral-400 hover:text-neutral-600"
-                          >
-                            <X className="h-3.5 w-3.5" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                    {remitoPreview ? (
-                      <div className="relative aspect-[4/3] bg-neutral-100 rounded overflow-hidden">
-                        <img
-                          src={remitoPreview}
-                          alt="Remito"
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                    ) : (
-                      <div
-                        onClick={() => fileInputRef.current?.click()}
-                        className="flex flex-col items-center justify-center aspect-[4/3] bg-neutral-50 rounded border border-dashed border-neutral-200 cursor-pointer hover:bg-neutral-100"
-                      >
-                        <Camera className="h-5 w-5 text-neutral-400 mb-1" />
-                        <span className="text-xs text-neutral-400">Agregar</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Carga */}
-                  <div className="border border-neutral-200 rounded p-2">
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-xs font-medium text-neutral-500 uppercase tracking-wide">
-                        Carga
-                      </span>
-                      {cargaPreview && (
-                        <button
-                          onClick={() => removeImage("carga")}
-                          className="text-neutral-400 hover:text-neutral-600"
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </button>
-                      )}
-                    </div>
-                    {cargaPreview ? (
-                      <div className="relative aspect-[4/3] bg-neutral-100 rounded overflow-hidden">
-                        <img
-                          src={cargaPreview}
-                          alt="Carga"
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                    ) : (
-                      <div
-                        onClick={() => fileInputRef.current?.click()}
-                        className="flex flex-col items-center justify-center aspect-[4/3] bg-neutral-50 rounded border border-dashed border-neutral-200 cursor-pointer hover:bg-neutral-100"
-                      >
-                        <ImageIcon className="h-5 w-5 text-neutral-400 mb-1" />
-                        <span className="text-xs text-neutral-400">Agregar</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Zona de drop adicional pequeña */}
-                {(!remitoPreview || !cargaPreview) && (
-                  <div
-                    onDragOver={handleDragOver}
-                    onDragLeave={handleDragLeave}
-                    onDrop={handleDrop}
-                    className={`
-                      p-2 rounded border border-dashed text-center text-xs transition-colors
-                      ${isDragging 
-                        ? 'border-orange-400 bg-orange-50 text-orange-600' 
-                        : 'border-neutral-200 text-neutral-400'
-                      }
-                    `}
-                  >
-                    {isDragging ? 'Soltá aquí' : 'Arrastrá más imágenes aquí'}
-                  </div>
-                )}
-              </div>
-            )}
           </div>
 
           {/* Botón analizar */}
           <div className="mb-6">
             <Button
               onClick={analyzeImages}
-              disabled={isAnalyzing || (!remitoImage && !cargaImage)}
+              disabled={isAnalyzing || !hasImages}
               className="w-full h-10 bg-orange-500 hover:bg-orange-600 text-white rounded flex items-center justify-center gap-2"
             >
               {isAnalyzing ? (
@@ -769,7 +593,7 @@ export default function NuevaRecepcionPage() {
                   Datos del Remito
                 </span>
               </div>
-              <div className="p-3 grid grid-cols-5 gap-3">
+              <div className="p-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
                 <div>
                   <Label className="text-xs mb-1 block">Nº Remito</Label>
                   <Input
@@ -1006,8 +830,8 @@ export default function NuevaRecepcionPage() {
               )}
               
               <div className="p-3 space-y-3">
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="col-span-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="sm:col-span-2">
                     <Label className="text-xs mb-1 block">Cliente / Razón Social</Label>
                     <Input
                       name="recipientName"
@@ -1031,8 +855,8 @@ export default function NuevaRecepcionPage() {
                   </div>
                 </div>
                 
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="col-span-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="sm:col-span-2">
                     <Label className="text-xs mb-1 block flex items-center gap-1">
                       Dirección de entrega
                       {pendingFields.recipientAddress && <span className="text-red-500">*</span>}
@@ -1075,8 +899,8 @@ export default function NuevaRecepcionPage() {
               
               {/* Detalle del cálculo de pricing */}
               {pricingInfo && pricingInfo.pricing.breakdown && (
-                <div className="px-3 py-2 bg-neutral-100 border-b border-neutral-200 text-xs">
-                  <div className="grid grid-cols-2 gap-x-6 gap-y-1">
+                <div className="px-3 py-2 bg-neutral-100 border-b border-neutral-200 text-xs overflow-x-auto">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1">
                     {/* Columna izquierda: Datos de carga */}
                     <div className="space-y-1">
                       <div className="font-medium text-neutral-600 mb-1">Datos de carga:</div>
@@ -1141,7 +965,7 @@ export default function NuevaRecepcionPage() {
                 </div>
               )}
 
-              <div className="p-3 grid grid-cols-3 gap-3">
+              <div className="p-3 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                 <div>
                   <Label className="text-xs mb-1 block">Pagadero por</Label>
                   <select
@@ -1188,7 +1012,7 @@ export default function NuevaRecepcionPage() {
                   Descripción de la Carga
                 </span>
               </div>
-              <div className="p-3 grid grid-cols-2 gap-3">
+              <div className="p-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <Label className="text-xs mb-1 block">Descripción</Label>
                   <textarea

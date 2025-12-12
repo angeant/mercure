@@ -45,8 +45,8 @@ export default async function TarifasPage() {
     <div className="min-h-screen bg-white">
       <Navbar />
       <main className="pt-12">
-        <div className="px-4 py-4">
-          <div className="flex items-center justify-between border-b border-neutral-200 pb-3 mb-4">
+        <div className="px-3 sm:px-4 py-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-neutral-200 pb-3 mb-4 gap-2">
             <h1 className="text-lg font-medium text-neutral-900">Tarifas</h1>
             <div className="flex gap-2">
               <Link href="/tarifas/nueva">
@@ -66,7 +66,7 @@ export default async function TarifasPage() {
           <div className="mb-6">
             <h2 className="text-xs font-medium text-neutral-500 uppercase tracking-wide mb-2">
               Tarifas Vigentes
-              <span className="ml-2 text-neutral-400 font-normal normal-case">(click en precio para editar)</span>
+              <span className="ml-2 text-neutral-400 font-normal normal-case hidden sm:inline">(click en precio para editar)</span>
             </h2>
             <TariffTable initialTariffs={tariffs as any} />
           </div>
@@ -77,33 +77,35 @@ export default async function TarifasPage() {
             <div>
               <h2 className="text-xs font-medium text-neutral-500 uppercase tracking-wide mb-2">Tasas de Seguro</h2>
               <div className="border border-neutral-200 rounded overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-neutral-50 border-b border-neutral-200">
-                      <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Tasa ‰</th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">IVA</th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Desde</th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Estado</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {insuranceRates.length === 0 ? (
-                      <tr><td colSpan={4} className="px-3 py-4 text-center text-neutral-400">Sin tasas</td></tr>
-                    ) : (
-                      insuranceRates.map((r: Record<string, unknown>) => {
-                        const isActive = !r.valid_until || new Date(r.valid_until as string) >= new Date();
-                        return (
-                          <tr key={r.id as number} className="border-b border-neutral-100 last:border-0">
-                            <td className="px-3 py-2 font-medium">{String(r.rate_per_thousand)}‰</td>
-                            <td className="px-3 py-2 text-neutral-600">{r.includes_iva ? 'Sí' : 'No'}</td>
-                            <td className="px-3 py-2 text-neutral-400 text-xs">{new Date(r.valid_from as string).toLocaleDateString('es-AR')}</td>
-                            <td className="px-3 py-2"><Badge variant={isActive ? 'success' : 'error'}>{isActive ? 'Vigente' : 'Vencida'}</Badge></td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm min-w-[350px]">
+                    <thead>
+                      <tr className="bg-neutral-50 border-b border-neutral-200">
+                        <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Tasa ‰</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">IVA</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Desde</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Estado</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {insuranceRates.length === 0 ? (
+                        <tr><td colSpan={4} className="px-3 py-4 text-center text-neutral-400">Sin tasas</td></tr>
+                      ) : (
+                        insuranceRates.map((r: Record<string, unknown>) => {
+                          const isActive = !r.valid_until || new Date(r.valid_until as string) >= new Date();
+                          return (
+                            <tr key={r.id as number} className="border-b border-neutral-100 last:border-0">
+                              <td className="px-3 py-2 font-medium">{String(r.rate_per_thousand)}‰</td>
+                              <td className="px-3 py-2 text-neutral-600">{r.includes_iva ? 'Sí' : 'No'}</td>
+                              <td className="px-3 py-2 text-neutral-400 text-xs">{new Date(r.valid_from as string).toLocaleDateString('es-AR')}</td>
+                              <td className="px-3 py-2"><Badge variant={isActive ? 'success' : 'error'}>{isActive ? 'Vigente' : 'Vencida'}</Badge></td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
 
@@ -111,34 +113,36 @@ export default async function TarifasPage() {
             <div>
               <h2 className="text-xs font-medium text-neutral-500 uppercase tracking-wide mb-2">Cotizaciones Recientes</h2>
               <div className="border border-neutral-200 rounded overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-neutral-50 border-b border-neutral-200">
-                      <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Cliente</th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Ruta</th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Total</th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Estado</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {quotations.length === 0 ? (
-                      <tr><td colSpan={4} className="px-3 py-4 text-center text-neutral-400">Sin cotizaciones</td></tr>
-                    ) : (
-                      quotations.slice(0, 8).map((q: Record<string, unknown>) => (
-                        <tr key={q.id as string} className="border-b border-neutral-100 last:border-0 hover:bg-neutral-50">
-                          <td className="px-3 py-2 truncate max-w-[100px]">{(q.customer_name as string) || '-'}</td>
-                          <td className="px-3 py-2 text-neutral-600 text-xs">{String(q.origin)} → {String(q.destination)}</td>
-                          <td className="px-3 py-2 font-medium">${Number(q.total_price).toLocaleString('es-AR')}</td>
-                          <td className="px-3 py-2">
-                            <Badge variant={q.status === 'accepted' ? 'success' : q.status === 'rejected' || q.status === 'expired' ? 'error' : 'warning'}>
-                              {q.status === 'pending' ? 'Pend' : q.status === 'accepted' ? 'OK' : q.status === 'rejected' ? 'Rech' : q.status as string}
-                            </Badge>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm min-w-[350px]">
+                    <thead>
+                      <tr className="bg-neutral-50 border-b border-neutral-200">
+                        <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Cliente</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Ruta</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Total</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Estado</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {quotations.length === 0 ? (
+                        <tr><td colSpan={4} className="px-3 py-4 text-center text-neutral-400">Sin cotizaciones</td></tr>
+                      ) : (
+                        quotations.slice(0, 8).map((q: Record<string, unknown>) => (
+                          <tr key={q.id as string} className="border-b border-neutral-100 last:border-0 hover:bg-neutral-50">
+                            <td className="px-3 py-2 truncate max-w-[100px]">{(q.customer_name as string) || '-'}</td>
+                            <td className="px-3 py-2 text-neutral-600 text-xs whitespace-nowrap">{String(q.origin)} → {String(q.destination)}</td>
+                            <td className="px-3 py-2 font-medium">${Number(q.total_price).toLocaleString('es-AR')}</td>
+                            <td className="px-3 py-2">
+                              <Badge variant={q.status === 'accepted' ? 'success' : q.status === 'rejected' || q.status === 'expired' ? 'error' : 'warning'}>
+                                {q.status === 'pending' ? 'Pend' : q.status === 'accepted' ? 'OK' : q.status === 'rejected' ? 'Rech' : q.status as string}
+                              </Badge>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           </div>

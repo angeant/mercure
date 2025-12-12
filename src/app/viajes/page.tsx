@@ -34,11 +34,11 @@ export default async function ViajesPage() {
     <div className="min-h-screen bg-white">
       <Navbar />
       <main className="pt-12">
-        <div className="px-4 py-4">
-          <div className="flex items-center justify-between border-b border-neutral-200 pb-3 mb-4">
+        <div className="px-3 sm:px-4 py-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-neutral-200 pb-3 mb-4 gap-2">
             <h1 className="text-lg font-medium text-neutral-900">Viajes</h1>
             <Link href="/viajes/nuevo">
-              <Button className="h-8 px-3 text-sm bg-orange-500 hover:bg-orange-600 text-white rounded">
+              <Button className="h-8 px-3 text-sm bg-orange-500 hover:bg-orange-600 text-white rounded w-full sm:w-auto">
                 Nuevo Viaje
               </Button>
             </Link>
@@ -46,7 +46,7 @@ export default async function ViajesPage() {
 
           <div className="border border-neutral-200 rounded overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-sm min-w-[800px]">
                 <thead>
                   <tr className="bg-neutral-50 border-b border-neutral-200">
                     <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">ID</th>
@@ -73,10 +73,10 @@ export default async function ViajesPage() {
                         <td className="px-3 py-2">{t.destination as string}</td>
                         <td className="px-3 py-2 text-neutral-600">{(t.vehicle as { identifier: string })?.identifier || '-'}</td>
                         <td className="px-3 py-2 font-mono text-neutral-500 text-xs">{(t.vehicle as { tractor_license_plate: string })?.tractor_license_plate || '-'}</td>
-                        <td className="px-3 py-2 text-neutral-600 text-xs">
+                        <td className="px-3 py-2 text-neutral-600 text-xs whitespace-nowrap">
                           {t.departure_time ? new Date(t.departure_time as string).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' }) : '-'}
                         </td>
-                        <td className="px-3 py-2 text-neutral-600 text-xs">
+                        <td className="px-3 py-2 text-neutral-600 text-xs whitespace-nowrap">
                           {t.arrival_time ? new Date(t.arrival_time as string).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' }) : '-'}
                         </td>
                         <td className="px-3 py-2">

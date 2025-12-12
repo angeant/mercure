@@ -1,7 +1,10 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import { supabase } from "./supabase";
+import { supabaseAdmin } from "./supabase";
 import { isSuperAdmin, canAccessRoute, Permission, hasPermission } from "./permissions";
+
+// Usar supabaseAdmin para bypasear RLS (solo server-side)
+const supabase = supabaseAdmin!;
 
 export async function getUserRole(userId: string): Promise<string | null> {
   // Buscar el rol del usuario en mercure_user_roles

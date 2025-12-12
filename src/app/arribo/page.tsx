@@ -1,7 +1,6 @@
 import { requireAuth } from "@/lib/auth";
 import { Navbar } from "@/components/layout/navbar";
 import { supabase } from "@/lib/supabase";
-import Link from "next/link";
 import { Warehouse } from "lucide-react";
 
 interface Shipment {
@@ -57,9 +56,9 @@ export default async function ArriboPage() {
     <div className="min-h-screen bg-white">
       <Navbar />
       <main className="pt-12">
-        <div className="px-4 py-4">
+        <div className="px-3 sm:px-4 py-4">
           {/* Header */}
-          <div className="flex items-center justify-between border-b border-neutral-200 pb-3 mb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-neutral-200 pb-3 mb-4 gap-2">
             <div className="flex items-center gap-2">
               <Warehouse className="h-5 w-5 text-neutral-400" />
               <div>
@@ -108,66 +107,67 @@ export default async function ArriboPage() {
 
 function ShipmentsTable({ shipments, showCheckbox = false }: { shipments: Shipment[]; showCheckbox?: boolean }) {
   return (
-    <table className="w-full text-sm">
-      <thead>
-        <tr className="border-b border-neutral-100">
-          {showCheckbox && (
-            <th className="px-3 py-2 text-left w-8">
-              <input type="checkbox" className="rounded border-neutral-300" />
-            </th>
-          )}
-          <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Remito</th>
-          <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Destinatario</th>
-          <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Dirección</th>
-          <th className="px-3 py-2 text-right text-xs font-medium text-neutral-500 uppercase">Bultos</th>
-          <th className="px-3 py-2 text-right text-xs font-medium text-neutral-500 uppercase">Kg</th>
-          <th className="px-3 py-2 text-right text-xs font-medium text-neutral-500 uppercase">M³</th>
-          <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Cobro</th>
-        </tr>
-      </thead>
-      <tbody>
-        {shipments.map(s => {
-          const isContado = s.payment_terms === 'contado';
-          return (
-            <tr key={s.id} className="border-b border-neutral-100 last:border-0 hover:bg-neutral-50">
-              {showCheckbox && (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm min-w-[600px]">
+        <thead>
+          <tr className="border-b border-neutral-100">
+            {showCheckbox && (
+              <th className="px-3 py-2 text-left w-8">
+                <input type="checkbox" className="rounded border-neutral-300" />
+              </th>
+            )}
+            <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Remito</th>
+            <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Destinatario</th>
+            <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Dirección</th>
+            <th className="px-3 py-2 text-right text-xs font-medium text-neutral-500 uppercase">Bultos</th>
+            <th className="px-3 py-2 text-right text-xs font-medium text-neutral-500 uppercase">Kg</th>
+            <th className="px-3 py-2 text-right text-xs font-medium text-neutral-500 uppercase">M³</th>
+            <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Cobro</th>
+          </tr>
+        </thead>
+        <tbody>
+          {shipments.map(s => {
+            const isContado = s.payment_terms === 'contado';
+            return (
+              <tr key={s.id} className="border-b border-neutral-100 last:border-0 hover:bg-neutral-50">
+                {showCheckbox && (
+                  <td className="px-3 py-2">
+                    <input type="checkbox" className="rounded border-neutral-300" />
+                  </td>
+                )}
                 <td className="px-3 py-2">
-                  <input type="checkbox" className="rounded border-neutral-300" />
+                  <span className="font-mono text-xs text-neutral-400">#{s.id}</span>
+                  {s.delivery_note_number && (
+                    <span className="ml-1 text-neutral-700">{s.delivery_note_number}</span>
+                  )}
                 </td>
-              )}
-              <td className="px-3 py-2">
-                <span className="font-mono text-xs text-neutral-400">#{s.id}</span>
-                {s.delivery_note_number && (
-                  <span className="ml-1 text-neutral-700">{s.delivery_note_number}</span>
-                )}
-              </td>
-              <td className="px-3 py-2 text-neutral-700 truncate max-w-[150px]">
-                {getLegalName(s.recipient)}
-              </td>
-              <td className="px-3 py-2 text-neutral-500 text-xs truncate max-w-[200px]">
-                {s.recipient_address || '-'}
-              </td>
-              <td className="px-3 py-2 text-right text-neutral-600">
-                {s.package_quantity || '-'}
-              </td>
-              <td className="px-3 py-2 text-right text-neutral-600">
-                {s.weight_kg || '-'}
-              </td>
-              <td className="px-3 py-2 text-right text-neutral-600">
-                {s.volume_m3 || '-'}
-              </td>
-              <td className="px-3 py-2">
-                {isContado ? (
-                  <span className="text-xs font-medium text-orange-600">Contra entrega</span>
-                ) : (
-                  <span className="text-xs text-neutral-400">Cta Cte</span>
-                )}
-              </td>
-            </tr>
-          );
-        })}
-      </tbody>
-    </table>
+                <td className="px-3 py-2 text-neutral-700 truncate max-w-[120px]">
+                  {getLegalName(s.recipient)}
+                </td>
+                <td className="px-3 py-2 text-neutral-500 text-xs truncate max-w-[150px]">
+                  {s.recipient_address || '-'}
+                </td>
+                <td className="px-3 py-2 text-right text-neutral-600">
+                  {s.package_quantity || '-'}
+                </td>
+                <td className="px-3 py-2 text-right text-neutral-600">
+                  {s.weight_kg || '-'}
+                </td>
+                <td className="px-3 py-2 text-right text-neutral-600">
+                  {s.volume_m3 || '-'}
+                </td>
+                <td className="px-3 py-2">
+                  {isContado ? (
+                    <span className="text-xs font-medium text-orange-600">Contra entrega</span>
+                  ) : (
+                    <span className="text-xs text-neutral-400">Cta Cte</span>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
   );
 }
-

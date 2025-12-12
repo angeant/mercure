@@ -23,11 +23,11 @@ export default async function EntidadesPage() {
     <div className="min-h-screen bg-white">
       <Navbar />
       <main className="pt-12">
-        <div className="px-4 py-4">
-          <div className="flex items-center justify-between border-b border-neutral-200 pb-3 mb-4">
+        <div className="px-3 sm:px-4 py-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-neutral-200 pb-3 mb-4 gap-2">
             <h1 className="text-lg font-medium text-neutral-900">Entidades</h1>
             <Link href="/entidades/nueva">
-              <Button className="h-8 px-3 text-sm bg-orange-500 hover:bg-orange-600 text-white rounded">
+              <Button className="h-8 px-3 text-sm bg-orange-500 hover:bg-orange-600 text-white rounded w-full sm:w-auto">
                 Nueva Entidad
               </Button>
             </Link>
@@ -35,7 +35,7 @@ export default async function EntidadesPage() {
 
           <div className="border border-neutral-200 rounded overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-sm min-w-[700px]">
                 <thead>
                   <tr className="bg-neutral-50 border-b border-neutral-200">
                     <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Razón Social</th>
@@ -84,4 +84,3 @@ export default async function EntidadesPage() {
     </div>
   );
 }
-

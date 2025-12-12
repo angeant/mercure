@@ -8,7 +8,6 @@ import {
   X, 
   Package, 
   Truck, 
-  MapPin, 
   RefreshCw, 
   Maximize2,
   Box,
@@ -260,23 +259,23 @@ export default function CentrosLogisticosPage() {
     <div className="min-h-screen bg-white">
       <Navbar />
       
-      <div className="px-4 py-3 border-b border-neutral-200">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
+      <div className="px-3 sm:px-4 py-3 border-b border-neutral-200 mt-12">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-4">
             <h1 className="text-lg font-medium text-neutral-900">
               Centros Logísticos
             </h1>
             <div className="flex items-center gap-2 text-xs">
               <span className="bg-blue-50 text-blue-700 px-2 py-1 rounded-full font-medium flex items-center gap-1">
                 <Package className="w-3 h-3" />
-                {totalShipments} envíos
+                {totalShipments}
               </span>
               <span className="bg-orange-50 text-orange-700 px-2 py-1 rounded-full font-medium flex items-center gap-1">
                 <Truck className="w-3 h-3" />
-                {totalTrucks} vehículos
+                {totalTrucks}
               </span>
-              <span className="text-neutral-400">
-                Actualizado: {lastUpdate.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}
+              <span className="text-neutral-400 hidden sm:inline">
+                {lastUpdate.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}
               </span>
             </div>
           </div>
@@ -287,12 +286,12 @@ export default function CentrosLogisticosPage() {
               onClick={fetchData}
               disabled={isLoading}
             >
-              <RefreshCw className={`w-4 h-4 mr-1 ${isLoading ? 'animate-spin' : ''}`} />
-              Actualizar
+              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline ml-1">Actualizar</span>
             </Button>
             <Button 
               variant="outline" 
-              className="h-8 px-3 text-sm"
+              className="h-8 px-3 text-sm hidden md:flex"
               onClick={() => setIsFullscreen(!isFullscreen)}
             >
               <Maximize2 className="w-4 h-4" />
@@ -301,36 +300,33 @@ export default function CentrosLogisticosPage() {
         </div>
       </div>
 
-      <div className={`flex ${isFullscreen ? 'fixed inset-0 z-50 bg-white' : 'h-[calc(100vh-120px)]'}`}>
+      <div className={`flex flex-col md:flex-row ${isFullscreen ? 'fixed inset-0 z-50 bg-white' : 'h-[calc(100vh-120px)]'}`}>
         {/* Vista 3D */}
-        <div className={`${selectedShipments.length > 0 ? 'w-2/3' : 'w-full'} h-full p-4 transition-all`}>
-          <div className="w-full h-full rounded-xl overflow-hidden shadow-lg border border-neutral-200">
+        <div className={`${selectedShipments.length > 0 ? 'md:w-2/3' : 'w-full'} h-[50vh] md:h-full p-3 sm:p-4 transition-all`}>
+          <div className="w-full h-full rounded-xl overflow-hidden shadow-lg border border-neutral-200 relative">
             <LogisticsScene3D
               warehouseData={warehouseData}
               tripsInTransit={tripsInTransit}
               onSelectShipments={handleSelectShipments}
             />
-          </div>
-          
-          {/* Leyenda */}
-          <div className="absolute bottom-8 left-8 bg-white/90 backdrop-blur rounded-lg shadow-lg p-3 text-xs">
-            <div className="font-medium text-neutral-700 mb-2">Leyenda</div>
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded bg-blue-500" />
-                <span className="text-neutral-600">Depósito Buenos Aires</span>
+            
+            {/* Leyenda - solo en desktop */}
+            <div className="hidden md:block absolute bottom-4 left-4 bg-white/90 backdrop-blur rounded-lg shadow-lg p-3 text-xs">
+              <div className="font-medium text-neutral-700 mb-2">Leyenda</div>
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded bg-blue-500" />
+                  <span className="text-neutral-600">Buenos Aires</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded bg-green-500" />
+                  <span className="text-neutral-600">Jujuy</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded bg-orange-500" />
+                  <span className="text-neutral-600">En ruta</span>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded bg-green-500" />
-                <span className="text-neutral-600">Depósito Jujuy</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded bg-orange-500" />
-                <span className="text-neutral-600">Camión en ruta</span>
-              </div>
-            </div>
-            <div className="mt-2 pt-2 border-t border-neutral-200 text-neutral-400">
-              Click en depósito o camión para ver envíos
             </div>
           </div>
 
@@ -349,8 +345,8 @@ export default function CentrosLogisticosPage() {
 
         {/* Panel de detalle */}
         {selectedShipments.length > 0 && (
-          <div className="w-1/3 h-full border-l border-neutral-200 bg-neutral-50 overflow-hidden flex flex-col">
-            <div className="px-4 py-3 border-b border-neutral-200 bg-white flex items-center justify-between">
+          <div className="md:w-1/3 h-[50vh] md:h-full border-t md:border-t-0 md:border-l border-neutral-200 bg-neutral-50 overflow-hidden flex flex-col">
+            <div className="px-3 sm:px-4 py-3 border-b border-neutral-200 bg-white flex items-center justify-between">
               <div>
                 <h2 className="text-sm font-medium text-neutral-900">{selectedTitle}</h2>
                 <p className="text-xs text-neutral-500">{selectedShipments.length} envíos</p>
@@ -367,56 +363,58 @@ export default function CentrosLogisticosPage() {
             </div>
             
             <div className="flex-1 overflow-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-neutral-100 sticky top-0">
-                  <tr className="text-xs text-neutral-500 uppercase">
-                    <th className="px-3 py-2 text-left font-medium">Envío</th>
-                    <th className="px-3 py-2 text-left font-medium">Destino</th>
-                    <th className="px-3 py-2 text-right font-medium">Bultos</th>
-                    <th className="px-3 py-2 text-right font-medium">Kg</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {selectedShipments.map((shipment) => (
-                    <tr 
-                      key={shipment.id} 
-                      className="border-b border-neutral-100 hover:bg-white transition-colors"
-                    >
-                      <td className="px-3 py-2">
-                        <div className="font-mono text-xs text-neutral-400">
-                          #{shipment.id}
-                        </div>
-                        {shipment.deliveryNoteNumber && (
-                          <div className="text-neutral-700 text-xs">
-                            {shipment.deliveryNoteNumber}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-3 py-2">
-                        <div className="text-neutral-700 truncate max-w-[120px]" title={shipment.recipientName}>
-                          {shipment.recipientName}
-                        </div>
-                        <div className="text-xs text-neutral-400 flex items-center gap-1">
-                          <User className="w-3 h-3" />
-                          {shipment.senderName}
-                        </div>
-                      </td>
-                      <td className="px-3 py-2 text-right">
-                        <span className="inline-flex items-center gap-1 text-neutral-600">
-                          <Box className="w-3 h-3" />
-                          {shipment.packageCount}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2 text-right">
-                        <span className="inline-flex items-center gap-1 text-neutral-600">
-                          <Weight className="w-3 h-3" />
-                          {shipment.weightKg}
-                        </span>
-                      </td>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm min-w-[350px]">
+                  <thead className="bg-neutral-100 sticky top-0">
+                    <tr className="text-xs text-neutral-500 uppercase">
+                      <th className="px-3 py-2 text-left font-medium">Envío</th>
+                      <th className="px-3 py-2 text-left font-medium">Destino</th>
+                      <th className="px-3 py-2 text-right font-medium">Bultos</th>
+                      <th className="px-3 py-2 text-right font-medium">Kg</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {selectedShipments.map((shipment) => (
+                      <tr 
+                        key={shipment.id} 
+                        className="border-b border-neutral-100 hover:bg-white transition-colors"
+                      >
+                        <td className="px-3 py-2">
+                          <div className="font-mono text-xs text-neutral-400">
+                            #{shipment.id}
+                          </div>
+                          {shipment.deliveryNoteNumber && (
+                            <div className="text-neutral-700 text-xs">
+                              {shipment.deliveryNoteNumber}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-3 py-2">
+                          <div className="text-neutral-700 truncate max-w-[100px]" title={shipment.recipientName}>
+                            {shipment.recipientName}
+                          </div>
+                          <div className="text-xs text-neutral-400 flex items-center gap-1">
+                            <User className="w-3 h-3" />
+                            <span className="truncate max-w-[80px]">{shipment.senderName}</span>
+                          </div>
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          <span className="inline-flex items-center gap-1 text-neutral-600">
+                            <Box className="w-3 h-3" />
+                            {shipment.packageCount}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          <span className="inline-flex items-center gap-1 text-neutral-600">
+                            <Weight className="w-3 h-3" />
+                            {shipment.weightKg}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
 
               {selectedShipments.length === 0 && (
                 <div className="flex flex-col items-center justify-center h-40 text-neutral-400">
@@ -427,7 +425,7 @@ export default function CentrosLogisticosPage() {
             </div>
 
             {/* Resumen */}
-            <div className="px-4 py-3 border-t border-neutral-200 bg-white">
+            <div className="px-3 sm:px-4 py-3 border-t border-neutral-200 bg-white">
               <div className="flex justify-between text-xs">
                 <span className="text-neutral-500">Total bultos:</span>
                 <span className="font-medium text-neutral-700">
@@ -447,3 +445,4 @@ export default function CentrosLogisticosPage() {
     </div>
   );
 }
+
