@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { Loader2, Save, Plus, ArrowLeft, CheckCircle2 } from "lucide-react";
+import { Loader2, Plus, ArrowLeft, CheckCircle2, Calculator } from "lucide-react";
 import Link from "next/link";
 
 interface Entity {
@@ -31,14 +31,16 @@ const DESTINOS = [
 export function NuevoRemitoForm({ entities }: { entities: Entity[] }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
+  const [calculating, setCalculating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [keepAdding, setKeepAdding] = useState(true);
+  const [pricingInfo, setPricingInfo] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     delivery_note_number: '',
-    sender_id: '',
-    recipient_id: '',
+    sender_name: '', // Campo abierto para remitente
+    recipient_id: '', // Cliente (destinatario)
     origin: 'LANUS',
     destination: 'JUJUY',
     weight_kg: '',
@@ -56,6 +58,62 @@ export function NuevoRemitoForm({ entities }: { entities: Entity[] }) {
       [e.target.name]: e.target.value
     }));
     setError(null);
+    setPricingInfo(null);
+  };
+
+  // Calcular flete y seguro automáticamente
+  const handleCalculate = async () => {
+    setCalculating(true);
+    setError(null);
+    setPricingInfo(null);
+
+    try {
+      if (!formData.recipient_id) {
+        throw new Error('Seleccione el cliente (destinatario) primero');
+      }
+
+      const client = entities.find(e => e.id === parseInt(formData.recipient_id));
+      if (!client) {
+        throw new Error('Cliente no encontrado');
+      }
+
+      const response = await fetch('/api/detect-pricing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recipientCuit: client.tax_id,
+          recipientName: client.legal_name,
+          destination: formData.destination,
+          packageQuantity: parseInt(formData.package_quantity) || 1,
+          weightKg: parseFloat(formData.weight_kg) || 0,
+          volumeM3: parseFloat(formData.volume_m3) || 0,
+          declaredValue: parseFloat(formData.declared_value) || 0,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Error al calcular');
+      }
+
+      // Extraer los valores del breakdown
+      const breakdown = result.pricing?.breakdown || {};
+      const flete = breakdown.flete || breakdown.freight || result.pricing?.price || 0;
+      const seguro = breakdown.seguro || breakdown.insurance || 0;
+
+      setFormData(prev => ({
+        ...prev,
+        freight_cost: flete.toFixed(2),
+        insurance_cost: seguro.toFixed(2),
+      }));
+
+      setPricingInfo(`${result.pathName} - ${result.tag?.label || 'Calculado'}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al calcular');
+    } finally {
+      setCalculating(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -68,16 +126,21 @@ export function NuevoRemitoForm({ entities }: { entities: Entity[] }) {
       if (!formData.delivery_note_number) {
         throw new Error('Nº de remito es requerido');
       }
-      if (!formData.sender_id) {
-        throw new Error('Remitente es requerido');
+      if (!formData.recipient_id) {
+        throw new Error('Cliente (destinatario) es requerido');
       }
+
+      // El cliente es el destinatario (recipient_id), que es quien paga
+      // Usamos sender_id también como el cliente para la cuenta corriente
+      const clientId = parseInt(formData.recipient_id);
 
       const { error: insertError } = await supabase
         .from('mercure_shipments')
         .insert({
           delivery_note_number: formData.delivery_note_number,
-          sender_id: parseInt(formData.sender_id),
-          recipient_id: formData.recipient_id ? parseInt(formData.recipient_id) : null,
+          sender_id: clientId, // El cliente va en sender_id para CC
+          recipient_id: clientId,
+          sender_name: formData.sender_name || null, // Nombre libre del remitente
           origin: formData.origin,
           destination: formData.destination,
           weight_kg: formData.weight_kg ? parseFloat(formData.weight_kg) : null,
@@ -94,15 +157,15 @@ export function NuevoRemitoForm({ entities }: { entities: Entity[] }) {
         throw new Error(insertError.message);
       }
 
-      const senderName = entities.find(e => e.id === parseInt(formData.sender_id))?.legal_name;
-      setSuccess(`Remito ${formData.delivery_note_number} guardado para ${senderName}`);
+      const clientName = entities.find(e => e.id === clientId)?.legal_name;
+      setSuccess(`Remito ${formData.delivery_note_number} guardado para ${clientName}`);
 
       if (keepAdding) {
-        // Limpiar solo algunos campos
+        // Limpiar solo algunos campos, mantener cliente
         setFormData(prev => ({
           ...prev,
           delivery_note_number: '',
-          recipient_id: '',
+          sender_name: '',
           weight_kg: '',
           volume_m3: '',
           package_quantity: '1',
@@ -111,6 +174,7 @@ export function NuevoRemitoForm({ entities }: { entities: Entity[] }) {
           insurance_cost: '',
           notes: '',
         }));
+        setPricingInfo(null);
       } else {
         router.push('/cuentas-corrientes');
       }
@@ -192,30 +256,11 @@ export function NuevoRemitoForm({ entities }: { entities: Entity[] }) {
         </div>
       </div>
 
-      {/* Remitente y Destinatario */}
+      {/* Cliente y Remitente */}
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-xs font-medium text-neutral-500 uppercase mb-1">
-            Remitente (Cliente) *
-          </label>
-          <select
-            name="sender_id"
-            value={formData.sender_id}
-            onChange={handleChange}
-            className="w-full h-10 px-3 border border-neutral-200 rounded text-sm focus:border-neutral-400 focus:ring-0"
-          >
-            <option value="">Seleccionar...</option>
-            {entities.map(e => (
-              <option key={e.id} value={e.id}>
-                {e.legal_name} {e.payment_terms === 'cuenta_corriente' ? '(CC)' : ''}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className="block text-xs font-medium text-neutral-500 uppercase mb-1">
-            Destinatario
+            Cliente (Destinatario) *
           </label>
           <select
             name="recipient_id"
@@ -223,11 +268,28 @@ export function NuevoRemitoForm({ entities }: { entities: Entity[] }) {
             onChange={handleChange}
             className="w-full h-10 px-3 border border-neutral-200 rounded text-sm focus:border-neutral-400 focus:ring-0"
           >
-            <option value="">Seleccionar...</option>
+            <option value="">Seleccionar cliente...</option>
             {entities.map(e => (
-              <option key={e.id} value={e.id}>{e.legal_name}</option>
+              <option key={e.id} value={e.id}>
+                {e.legal_name} {e.payment_terms === 'cuenta_corriente' ? '(CC)' : ''}
+              </option>
             ))}
           </select>
+          <p className="text-xs text-neutral-400 mt-1">El cliente es quien paga el flete</p>
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-neutral-500 uppercase mb-1">
+            Remitente (origen de la carga)
+          </label>
+          <input
+            type="text"
+            name="sender_name"
+            value={formData.sender_name}
+            onChange={handleChange}
+            placeholder="Nombre del remitente"
+            className="w-full h-10 px-3 border border-neutral-200 rounded text-sm focus:border-neutral-400 focus:ring-0"
+          />
         </div>
       </div>
 
@@ -291,35 +353,67 @@ export function NuevoRemitoForm({ entities }: { entities: Entity[] }) {
       </div>
 
       {/* Costos */}
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="block text-xs font-medium text-neutral-500 uppercase mb-1">
-            Flete $
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <label className="text-xs font-medium text-neutral-500 uppercase">
+            Costos
           </label>
-          <input
-            type="number"
-            name="freight_cost"
-            value={formData.freight_cost}
-            onChange={handleChange}
-            step="0.01"
-            placeholder="0.00"
-            className="w-full h-10 px-3 border border-neutral-200 rounded text-sm focus:border-neutral-400 focus:ring-0"
-          />
+          <button
+            type="button"
+            onClick={handleCalculate}
+            disabled={calculating || !formData.recipient_id}
+            className="h-8 px-3 text-sm bg-neutral-900 hover:bg-neutral-800 disabled:bg-neutral-300 text-white rounded flex items-center gap-2"
+          >
+            {calculating ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Calculando...
+              </>
+            ) : (
+              <>
+                <Calculator className="w-4 h-4" />
+                Calcular Automático
+              </>
+            )}
+          </button>
         </div>
 
-        <div>
-          <label className="block text-xs font-medium text-neutral-500 uppercase mb-1">
-            Seguro $
-          </label>
-          <input
-            type="number"
-            name="insurance_cost"
-            value={formData.insurance_cost}
-            onChange={handleChange}
-            step="0.01"
-            placeholder="0.00"
-            className="w-full h-10 px-3 border border-neutral-200 rounded text-sm focus:border-neutral-400 focus:ring-0"
-          />
+        {pricingInfo && (
+          <div className="text-xs text-green-600 bg-green-50 px-3 py-1.5 rounded">
+            ✓ {pricingInfo}
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-medium text-neutral-500 uppercase mb-1">
+              Flete $
+            </label>
+            <input
+              type="number"
+              name="freight_cost"
+              value={formData.freight_cost}
+              onChange={handleChange}
+              step="0.01"
+              placeholder="0.00"
+              className="w-full h-10 px-3 border border-neutral-200 rounded text-sm focus:border-neutral-400 focus:ring-0"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-neutral-500 uppercase mb-1">
+              Seguro $
+            </label>
+            <input
+              type="number"
+              name="insurance_cost"
+              value={formData.insurance_cost}
+              onChange={handleChange}
+              step="0.01"
+              placeholder="0.00"
+              className="w-full h-10 px-3 border border-neutral-200 rounded text-sm focus:border-neutral-400 focus:ring-0"
+            />
+          </div>
         </div>
       </div>
 
