@@ -42,6 +42,12 @@ interface PricingResult {
     needsReview: boolean;
     reason?: string;
   };
+  commercialTerms?: {
+    tariffType: string;
+    tariffModifier: number;
+    insuranceRate: number;
+    creditDays: number;
+  };
 }
 
 export async function POST(request: NextRequest) {

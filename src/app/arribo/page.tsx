@@ -15,10 +15,17 @@ interface Shipment {
   paid_by: string | null;
   payment_terms: string | null;
   created_at: string;
-  recipient: { legal_name: string } | null;
-  sender: { legal_name: string } | null;
+  recipient: { legal_name: string } | { legal_name: string }[] | null;
+  sender: { legal_name: string } | { legal_name: string }[] | null;
   recipient_address: string | null;
   trip_id: number | null;
+}
+
+// Helper para extraer legal_name de relación (puede ser objeto o array)
+function getLegalName(entity: { legal_name: string } | { legal_name: string }[] | null): string {
+  if (!entity) return '-';
+  if (Array.isArray(entity)) return entity[0]?.legal_name || '-';
+  return entity.legal_name || '-';
 }
 
 // Estados post-arribo
@@ -135,7 +142,7 @@ function ShipmentsTable({ shipments, showCheckbox = false }: { shipments: Shipme
                 )}
               </td>
               <td className="px-3 py-2 text-neutral-700 truncate max-w-[150px]">
-                {s.recipient?.legal_name || '-'}
+                {getLegalName(s.recipient)}
               </td>
               <td className="px-3 py-2 text-neutral-500 text-xs truncate max-w-[200px]">
                 {s.recipient_address || '-'}

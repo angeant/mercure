@@ -15,11 +15,25 @@ interface Shipment {
   paid_by: string | null;
   payment_terms: string | null;
   created_at: string;
-  recipient: { legal_name: string } | null;
-  sender: { legal_name: string } | null;
+  recipient: { legal_name: string } | { legal_name: string }[] | null;
+  sender: { legal_name: string } | { legal_name: string }[] | null;
   recipient_address: string | null;
   trip_id: number | null;
-  trip: { id: number; origin: string; destination: string; departure_date: string } | null;
+  trip: { id: number; origin: string; destination: string; departure_date: string } | { id: number; origin: string; destination: string; departure_date: string }[] | null;
+}
+
+// Helper para extraer legal_name de relación
+function getLegalName(entity: { legal_name: string } | { legal_name: string }[] | null): string {
+  if (!entity) return '-';
+  if (Array.isArray(entity)) return entity[0]?.legal_name || '-';
+  return entity.legal_name || '-';
+}
+
+// Helper para extraer trip de relación
+function getTrip(trip: Shipment['trip']): { id: number; origin: string; destination: string; departure_date: string } | null {
+  if (!trip) return null;
+  if (Array.isArray(trip)) return trip[0] || null;
+  return trip;
 }
 
 // Estados que se consideran "en tránsito" (despachados)
@@ -41,15 +55,18 @@ async function getShipmentsEnTransito() {
 }
 
 // Agrupar por viaje
+type TripData = { id: number; origin: string; destination: string; departure_date: string };
+
 function groupByTrip(shipments: Shipment[]) {
-  const groups: Record<string, { trip: Shipment['trip']; shipments: Shipment[] }> = {};
+  const groups: Record<string, { trip: TripData; shipments: Shipment[] }> = {};
   const sinViaje: Shipment[] = [];
   
   shipments.forEach(s => {
-    if (s.trip) {
-      const key = `trip-${s.trip.id}`;
+    const trip = getTrip(s.trip);
+    if (trip) {
+      const key = `trip-${trip.id}`;
       if (!groups[key]) {
-        groups[key] = { trip: s.trip, shipments: [] };
+        groups[key] = { trip, shipments: [] };
       }
       groups[key].shipments.push(s);
     } else {
@@ -180,7 +197,7 @@ function ShipmentRow({ shipment: s }: { shipment: Shipment }) {
         )}
       </td>
       <td className="px-3 py-2 text-neutral-700 truncate max-w-[150px]">
-        {s.recipient?.legal_name || '-'}
+        {getLegalName(s.recipient)}
       </td>
       <td className="px-3 py-2 text-neutral-500 text-xs truncate max-w-[200px]">
         {s.recipient_address || '-'}

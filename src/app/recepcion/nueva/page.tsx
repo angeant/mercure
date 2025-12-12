@@ -449,7 +449,7 @@ export default function NuevaRecepcionPage() {
       if (data.recipientId) {
         setRecipientStatus('found');
         // Detectar pricing
-        detectPricing(data.recipientCuit, data.recipientName);
+        detectPricing(data.recipientCuit || undefined, data.recipientName || undefined);
       } else if (data.recipientName || data.recipientCuit) {
         // Buscar en DB si no devolvió ID
         const recipientResult = await searchEntity(data.recipientCuit, data.recipientName);

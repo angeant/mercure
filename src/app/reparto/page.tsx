@@ -14,9 +14,16 @@ interface Shipment {
   paid_by: string | null;
   payment_terms: string | null;
   created_at: string;
-  recipient: { legal_name: string } | null;
-  sender: { legal_name: string } | null;
+  recipient: { legal_name: string } | { legal_name: string }[] | null;
+  sender: { legal_name: string } | { legal_name: string }[] | null;
   recipient_address: string | null;
+}
+
+// Helper para extraer legal_name de relación
+function getLegalName(entity: { legal_name: string } | { legal_name: string }[] | null): string {
+  if (!entity) return '-';
+  if (Array.isArray(entity)) return entity[0]?.legal_name || '-';
+  return entity.legal_name || '-';
 }
 
 async function getShipmentsReparto() {
@@ -112,7 +119,7 @@ export default async function RepartoPage() {
                           )}
                         </td>
                         <td className="px-3 py-2 text-neutral-700">
-                          {s.recipient?.legal_name || '-'}
+                          {getLegalName(s.recipient)}
                         </td>
                         <td className="px-3 py-2 text-neutral-500 text-xs truncate max-w-[250px]">
                           {s.recipient_address || '-'}
@@ -163,7 +170,7 @@ export default async function RepartoPage() {
                         )}
                       </td>
                       <td className="px-3 py-2 text-neutral-700">
-                        {s.recipient?.legal_name || '-'}
+                        {getLegalName(s.recipient)}
                       </td>
                       <td className="px-3 py-2">
                         <span className={`text-xs px-1.5 py-0.5 rounded ${
