@@ -2,7 +2,7 @@
 
 import { Suspense, useState, useEffect, useRef } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { OrbitControls, Environment, Html, PerspectiveCamera } from "@react-three/drei";
+import { Environment, Html, PerspectiveCamera } from "@react-three/drei";
 import * as THREE from "three";
 import { Truck } from "./Truck";
 import { Warehouse } from "./Warehouse";
@@ -27,6 +27,8 @@ interface TripData {
   vehiclePlate: string | null;
   shipments: ShipmentData[];
   progress: number; // 0-1
+  departureTime: string | null; // Hora de salida
+  estimatedArrival: string | null; // Hora estimada de llegada
 }
 
 interface WarehouseData {
@@ -75,10 +77,9 @@ function AnimatedTruck({
     setRotation([0, -angle + Math.PI, 0]);
   }, [trip.progress, startPos, endPos]);
 
-  // Animación suave del progreso
+  // Animación suave
   useFrame(() => {
     if (groupRef.current) {
-      // Pequeña oscilación vertical para simular movimiento
       groupRef.current.position.y = Math.sin(Date.now() * 0.008) * 0.02;
     }
   });
@@ -88,12 +89,47 @@ function AnimatedTruck({
       <Truck
         position={[0, 0, 0]}
         color="#F97316"
-        label={trip.vehiclePlate || `Viaje #${trip.id}`}
         shipmentCount={trip.shipments.length}
         onClick={onSelect}
         isSelected={isSelected}
         animate={true}
       />
+      
+      {/* Info del viaje sobre el camión */}
+      <Html position={[0, 1.5, 0]} center distanceFactor={6}>
+        <div 
+          className={`
+            bg-white rounded-lg shadow-xl px-3 py-2 cursor-pointer
+            transition-all duration-200 border-2 min-w-[140px]
+            ${isSelected ? 'border-orange-500 scale-105' : 'border-transparent hover:border-orange-200'}
+          `}
+          onClick={onSelect}
+        >
+          <div className="text-xs font-bold text-orange-600 flex items-center gap-1">
+            🚚 {trip.vehiclePlate || `Viaje #${trip.id}`}
+          </div>
+          <div className="text-[10px] text-neutral-500 mt-0.5">
+            {trip.origin} → {trip.destination}
+          </div>
+          {trip.departureTime && (
+            <div className="flex justify-between text-[10px] mt-1 pt-1 border-t border-neutral-100">
+              <span className="text-neutral-400">Salió:</span>
+              <span className="font-medium text-neutral-600">{trip.departureTime}</span>
+            </div>
+          )}
+          {trip.estimatedArrival && (
+            <div className="flex justify-between text-[10px]">
+              <span className="text-neutral-400">Llega:</span>
+              <span className="font-medium text-green-600">{trip.estimatedArrival}</span>
+            </div>
+          )}
+          <div className="mt-1 pt-1 border-t border-neutral-100">
+            <span className="text-[10px] bg-orange-50 text-orange-700 px-1.5 py-0.5 rounded">
+              📦 {trip.shipments.length} envíos
+            </span>
+          </div>
+        </div>
+      </Html>
     </group>
   );
 }
@@ -131,38 +167,22 @@ function Scene({
 
   return (
     <>
-      {/* Cámara */}
-      <PerspectiveCamera makeDefault position={[0, 8, 12]} fov={50} />
-      
-      {/* Controles de órbita */}
-      <OrbitControls
-        enablePan={true}
-        enableZoom={true}
-        enableRotate={true}
-        minPolarAngle={0.2}
-        maxPolarAngle={Math.PI / 2.2}
-        minDistance={5}
-        maxDistance={25}
-      />
+      {/* Cámara fija - vista desde arriba en ángulo */}
+      <PerspectiveCamera makeDefault position={[0, 10, 8]} fov={45} />
 
       {/* Iluminación */}
-      <ambientLight intensity={0.6} />
+      <ambientLight intensity={0.7} />
       <directionalLight
         position={[10, 15, 5]}
         intensity={1}
         castShadow
         shadow-mapSize={[2048, 2048]}
-        shadow-camera-far={50}
-        shadow-camera-left={-20}
-        shadow-camera-right={20}
-        shadow-camera-top={20}
-        shadow-camera-bottom={-20}
       />
       <pointLight position={[-10, 10, -10]} intensity={0.3} />
 
       {/* Entorno */}
       <Environment preset="city" />
-      <fog attach="fog" args={["#f5f5f5", 15, 40]} />
+      <fog attach="fog" args={["#f5f5f5", 20, 50]} />
 
       {/* Terreno */}
       <Terrain />
@@ -204,16 +224,30 @@ function Scene({
           const basePos = warehouse.id === "bsas" ? bsasPos : jujuyPos;
           const offset = warehouse.id === "bsas" ? 2.5 : -2.5;
           return (
-            <Truck
-              key={`parked-${trip.id}`}
-              position={[basePos[0] + offset, 0, basePos[2] + 2 + i * 0.8]}
-              rotation={[0, warehouse.id === "bsas" ? Math.PI / 2 : -Math.PI / 2, 0]}
-              color="#F97316"
-              label={trip.vehiclePlate || `#${trip.id}`}
-              shipmentCount={trip.shipments.length}
-              onClick={() => handleTripClick(trip)}
-              isSelected={selectedItem === `trip-${trip.id}`}
-            />
+            <group key={`parked-${trip.id}`}>
+              <Truck
+                position={[basePos[0] + offset, 0, basePos[2] + 2 + i * 1.2]}
+                rotation={[0, warehouse.id === "bsas" ? Math.PI / 2 : -Math.PI / 2, 0]}
+                color="#F97316"
+                shipmentCount={trip.shipments.length}
+                onClick={() => handleTripClick(trip)}
+                isSelected={selectedItem === `trip-${trip.id}`}
+              />
+              {/* Label del camión estacionado */}
+              <Html 
+                position={[basePos[0] + offset, 1.2, basePos[2] + 2 + i * 1.2]} 
+                center 
+                distanceFactor={8}
+              >
+                <div 
+                  className="bg-white/90 rounded px-2 py-1 text-[10px] shadow cursor-pointer hover:bg-orange-50"
+                  onClick={() => handleTripClick(trip)}
+                >
+                  <span className="font-medium">{trip.vehiclePlate || `#${trip.id}`}</span>
+                  <span className="text-neutral-400 ml-1">• {trip.shipments.length} env.</span>
+                </div>
+              </Html>
+            </group>
           );
         })
       )}
@@ -235,13 +269,6 @@ function Scene({
           />
         );
       })}
-
-      {/* Label de ruta */}
-      <Html position={[0, 0.5, 1]} center>
-        <div className="text-xs text-neutral-400 bg-white/80 px-2 py-1 rounded shadow">
-          Ruta Nacional 9 • ~1.500 km
-        </div>
-      </Html>
     </>
   );
 }

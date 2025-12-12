@@ -108,12 +108,25 @@ export default function CentrosLogisticosPage() {
         const vehicleData = t.vehicle as { plate: string } | { plate: string }[] | null;
         const plate = Array.isArray(vehicleData) ? vehicleData[0]?.plate : vehicleData?.plate;
         
-        // Calcular progreso basado en tiempo (simulado)
+        // Calcular progreso y tiempos
         let progress = 0;
-        if (t.status === "in_transit") {
-          // Simular progreso basado en hora del día
+        let departureTime: string | null = null;
+        let estimatedArrival: string | null = null;
+        
+        if (t.status === "in_transit" && t.departure_date) {
+          const departure = new Date(t.departure_date);
           const now = new Date();
-          progress = (now.getHours() % 12) / 12;
+          const hoursElapsed = (now.getTime() - departure.getTime()) / (1000 * 60 * 60);
+          
+          // Viaje dura aprox 18-20 horas
+          const tripDurationHours = 18;
+          progress = Math.min(hoursElapsed / tripDurationHours, 0.95);
+          
+          departureTime = departure.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
+          
+          // Calcular ETA
+          const eta = new Date(departure.getTime() + tripDurationHours * 60 * 60 * 1000);
+          estimatedArrival = eta.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
         } else if (t.status === "arrived") {
           progress = 1;
         }
@@ -126,11 +139,36 @@ export default function CentrosLogisticosPage() {
           vehiclePlate: plate || null,
           shipments: tripShipments,
           progress,
+          departureTime,
+          estimatedArrival,
         };
       });
 
       // Viajes en tránsito
-      const inTransitTrips = processedTrips.filter(t => t.status === "in_transit");
+      let inTransitTrips = processedTrips.filter(t => t.status === "in_transit");
+      
+      // Si no hay viajes en tránsito, mostrar uno de demo para visualización
+      if (inTransitTrips.length === 0) {
+        const now = new Date();
+        const demoShipments = allShipments.filter(s => s.status === "en_transito").slice(0, 5);
+        const departureHour = (now.getHours() - 6 + 24) % 24;
+        const arrivalHour = (departureHour + 18) % 24;
+        
+        inTransitTrips = [{
+          id: 0,
+          origin: "Buenos Aires",
+          destination: "Jujuy",
+          status: "in_transit",
+          vehiclePlate: "AB 123 CD",
+          shipments: demoShipments.length > 0 ? demoShipments : [
+            { id: 1, deliveryNoteNumber: "R-0001", status: "en_transito", senderName: "Demo SA", recipientName: "Cliente Jujuy", packageCount: 5, weightKg: 120 },
+            { id: 2, deliveryNoteNumber: "R-0002", status: "en_transito", senderName: "Otro SA", recipientName: "Empresa Norte", packageCount: 3, weightKg: 80 },
+          ],
+          progress: 0.4, // 40% del camino
+          departureTime: `${departureHour.toString().padStart(2, '0')}:00`,
+          estimatedArrival: `${arrivalHour.toString().padStart(2, '0')}:00`,
+        }];
+      }
       
       // Viajes cargando en BS AS
       const loadingInBsas = processedTrips.filter(t => 
