@@ -518,10 +518,7 @@ function NuevaRecepcionContent() {
         throw new Error("La dirección de entrega es requerida");
       }
 
-      // Validar que haya precio calculado
-      if (!calculatedPrice || calculatedPrice <= 0) {
-        throw new Error("No se pudo calcular el precio del flete. Verificá los datos de peso/volumen y el cliente.");
-      }
+      // Nota: No bloqueamos si no hay precio - se puede cotizar en destino
 
       // Preparar FormData para enviar
       const formDataToSend = new FormData();

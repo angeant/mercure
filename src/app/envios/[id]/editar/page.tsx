@@ -7,7 +7,7 @@ import { EditShipmentForm } from "./edit-shipment-form";
 async function getShipmentData(id: number) {
   const { data: shipment } = await supabase
     .from('mercure_shipments')
-    .select('*')
+    .select('*, quotation_id')
     .eq('id', id)
     .single();
 

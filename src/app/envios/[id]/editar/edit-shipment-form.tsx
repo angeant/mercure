@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { ArrowLeft, Save, Loader2 } from "lucide-react";
+import { ArrowLeft, Save, Loader2, RefreshCw, Calculator } from "lucide-react";
 import Link from "next/link";
 
 interface Entity {
@@ -26,8 +26,15 @@ interface ShipmentData {
   paid_by: string | null;
   payment_terms: string | null;
   notes: string | null;
+  quotation_id: string | null;
   sender?: Entity | null;
   recipient?: Entity | null;
+}
+
+interface QuotationData {
+  total_price: number;
+  base_price: number;
+  insurance_cost: number;
 }
 
 interface EditShipmentFormProps {
@@ -38,7 +45,31 @@ interface EditShipmentFormProps {
 export function EditShipmentForm({ shipment, entities }: EditShipmentFormProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isQuoting, setIsQuoting] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [quotation, setQuotation] = useState<QuotationData | null>(null);
+  const [newQuotation, setNewQuotation] = useState<{ price: number; breakdown: Record<string, number> } | null>(null);
+  
+  // Cargar cotización existente
+  useEffect(() => {
+    async function loadQuotation() {
+      if (shipment.quotation_id) {
+        const { data } = await supabase
+          .from('mercure_quotations')
+          .select('total_price, base_price, insurance_cost')
+          .eq('id', shipment.quotation_id)
+          .single();
+        if (data) {
+          setQuotation({
+            total_price: Number(data.total_price),
+            base_price: Number(data.base_price),
+            insurance_cost: Number(data.insurance_cost),
+          });
+        }
+      }
+    }
+    loadQuotation();
+  }, [shipment.quotation_id]);
   
   const [formData, setFormData] = useState({
     delivery_note_number: shipment.delivery_note_number || '',
@@ -58,6 +89,52 @@ export function EditShipmentForm({ shipment, entities }: EditShipmentFormProps) 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+    // Limpiar cotización nueva si cambian datos relevantes
+    if (['weight_kg', 'volume_m3', 'declared_value', 'recipient_id'].includes(name)) {
+      setNewQuotation(null);
+    }
+  };
+
+  const handleRecotizar = async () => {
+    setIsQuoting(true);
+    setMessage(null);
+    setNewQuotation(null);
+
+    try {
+      const response = await fetch('/api/detect-pricing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientId: formData.recipient_id ? parseInt(formData.recipient_id) : null,
+          cargo: {
+            weightKg: formData.weight_kg ? parseFloat(formData.weight_kg) : 0,
+            volumeM3: formData.volume_m3 ? parseFloat(formData.volume_m3) : null,
+            declaredValue: formData.declared_value ? parseFloat(formData.declared_value) : null,
+          },
+          origin: 'Buenos Aires',
+          destination: 'Jujuy',
+        }),
+      });
+
+      if (!response.ok) throw new Error('Error en cotizador');
+
+      const result = await response.json();
+      
+      if (result.pricing?.price > 0) {
+        setNewQuotation({
+          price: result.pricing.price,
+          breakdown: result.pricing.breakdown || {},
+        });
+        setMessage({ type: 'success', text: `Nuevo precio: $${result.pricing.price.toLocaleString('es-AR', { minimumFractionDigits: 2 })}` });
+      } else {
+        setMessage({ type: 'error', text: 'No se pudo calcular el precio. Verificá peso/volumen.' });
+      }
+    } catch (error) {
+      console.error('Error recotizando:', error);
+      setMessage({ type: 'error', text: 'Error al recotizar' });
+    } finally {
+      setIsQuoting(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -66,7 +143,7 @@ export function EditShipmentForm({ shipment, entities }: EditShipmentFormProps) 
     setMessage(null);
 
     try {
-      const updateData = {
+      const updateData: Record<string, unknown> = {
         delivery_note_number: formData.delivery_note_number || null,
         sender_id: formData.sender_id ? parseInt(formData.sender_id) : null,
         recipient_id: formData.recipient_id ? parseInt(formData.recipient_id) : null,
@@ -80,6 +157,42 @@ export function EditShipmentForm({ shipment, entities }: EditShipmentFormProps) 
         payment_terms: formData.payment_terms || null,
         notes: formData.notes || null,
       };
+
+      // Si hay nueva cotización, guardarla
+      if (newQuotation) {
+        const recipient = entities.find(e => e.id.toString() === formData.recipient_id);
+        
+        // Crear nueva cotización
+        const { data: newQuot, error: quotError } = await supabase
+          .from('mercure_quotations')
+          .insert({
+            shipment_id: shipment.id,
+            entity_id: formData.recipient_id ? parseInt(formData.recipient_id) : null,
+            customer_name: recipient?.legal_name || 'Desconocido',
+            customer_cuit: recipient?.tax_id || null,
+            origin: 'Buenos Aires',
+            destination: 'Jujuy',
+            weight_kg: formData.weight_kg ? parseFloat(formData.weight_kg) : 0,
+            volume_m3: formData.volume_m3 ? parseFloat(formData.volume_m3) : 0,
+            volumetric_weight_kg: newQuotation.breakdown?.peso_volumetrico || null,
+            chargeable_weight_kg: newQuotation.breakdown?.peso_cobrado || null,
+            insurance_value: formData.declared_value ? parseFloat(formData.declared_value) : 0,
+            base_price: newQuotation.breakdown?.flete_final || newQuotation.price,
+            insurance_cost: newQuotation.breakdown?.seguro || 0,
+            total_price: newQuotation.price,
+            includes_iva: false,
+            status: 'confirmed',
+            source: 'recotizacion',
+          })
+          .select('id')
+          .single();
+
+        if (quotError) {
+          console.error('Error creando cotización:', quotError);
+        } else if (newQuot) {
+          updateData.quotation_id = newQuot.id;
+        }
+      }
 
       const { error } = await supabase
         .from('mercure_shipments')
@@ -228,6 +341,49 @@ export function EditShipmentForm({ shipment, entities }: EditShipmentFormProps) 
               className="w-full h-9 px-3 text-sm border border-neutral-200 rounded focus:border-neutral-400 focus:ring-0"
               min="0"
             />
+          </div>
+        </div>
+
+        {/* Cotización */}
+        <div className="p-3 bg-neutral-50 border border-neutral-200 rounded">
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-xs font-medium text-neutral-500 uppercase">Cotización</label>
+            <button
+              type="button"
+              onClick={handleRecotizar}
+              disabled={isQuoting}
+              className="h-7 px-3 text-xs bg-orange-500 hover:bg-orange-600 text-white rounded flex items-center gap-1.5 disabled:opacity-50"
+            >
+              {isQuoting ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : (
+                <Calculator className="w-3 h-3" />
+              )}
+              {isQuoting ? 'Calculando...' : 'Recotizar'}
+            </button>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <span className="text-neutral-500">Precio actual:</span>
+              <p className={`font-medium ${quotation ? 'text-neutral-900' : 'text-amber-600'}`}>
+                {quotation ? `$${quotation.total_price.toLocaleString('es-AR', { minimumFractionDigits: 2 })}` : 'Sin cotizar'}
+              </p>
+              {quotation && (
+                <p className="text-xs text-neutral-400">
+                  Flete: ${quotation.base_price.toLocaleString('es-AR')} + Seguro: ${quotation.insurance_cost.toLocaleString('es-AR')}
+                </p>
+              )}
+            </div>
+            {newQuotation && (
+              <div className="bg-green-50 border border-green-200 rounded p-2">
+                <span className="text-green-700 text-xs">Nuevo precio:</span>
+                <p className="font-bold text-green-800">
+                  ${newQuotation.price.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                </p>
+                <p className="text-xs text-green-600">Se guardará al confirmar</p>
+              </div>
+            )}
           </div>
         </div>
 
