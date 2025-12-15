@@ -66,20 +66,34 @@ export async function GET(request: NextRequest) {
   const qrBase64 = Buffer.from(JSON.stringify(qrData)).toString('base64');
   const qrUrl = `https://www.afip.gob.ar/fe/qr/?p=${qrBase64}`;
   
-  // Crear HTML del PDF
+  // Crear HTML del PDF optimizado para impresión
   const html = `
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
+  <title>Factura ${invoiceNumber}</title>
   <style>
+    @page {
+      size: A4;
+      margin: 0;
+    }
+    @media print {
+      html, body {
+        margin: 0 !important;
+        padding: 0 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      .no-print { display: none !important; }
+    }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { 
       font-family: 'Helvetica Neue', Arial, sans-serif; 
       font-size: 11px; 
       color: #333;
-      padding: 20px;
-      max-width: 800px;
+      padding: 15mm;
+      max-width: 210mm;
       margin: 0 auto;
     }
     .header { 
@@ -343,49 +357,26 @@ export async function GET(request: NextRequest) {
   <div class="footer">
     Comprobante autorizado por AFIP - Verifique este comprobante en: www.afip.gob.ar/fe/qr/
   </div>
+  
+  <script>
+    // Auto-abrir diálogo de impresión al cargar
+    window.onload = function() {
+      // Pequeño delay para que cargue el QR
+      setTimeout(function() {
+        window.print();
+      }, 500);
+    };
+  </script>
 </body>
 </html>
 `;
 
-  // Generar PDF con Puppeteer
-  try {
-    const puppeteer = await import('puppeteer');
-    const browser = await puppeteer.default.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    });
-    
-    const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: 'networkidle0' });
-    
-    const pdfBuffer = await page.pdf({
-      format: 'A4',
-      printBackground: true,
-      margin: {
-        top: '10mm',
-        bottom: '10mm',
-        left: '10mm',
-        right: '10mm',
-      },
-    });
-    
-    await browser.close();
-    
-    return new NextResponse(Buffer.from(pdfBuffer), {
-      headers: {
-        'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="Factura_${invoiceNumber.replace('-', '_')}.pdf"`,
-      },
-    });
-  } catch (error) {
-    console.error('Error generando PDF:', error);
-    // Fallback a HTML si falla Puppeteer
-    return new NextResponse(html, {
-      headers: {
-        'Content-Type': 'text/html; charset=utf-8',
-        'Content-Disposition': `attachment; filename="Factura_${invoiceNumber.replace('-', '_')}.html"`,
-      },
-    });
-  }
+  // Devolver HTML optimizado para imprimir como PDF desde el navegador
+  // El usuario puede usar Ctrl+P / Cmd+P para guardar como PDF
+  return new NextResponse(html, {
+    headers: {
+      'Content-Type': 'text/html; charset=utf-8',
+    },
+  });
 }
 
