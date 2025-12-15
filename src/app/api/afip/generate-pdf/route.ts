@@ -3,8 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 // Datos del emisor (Mercure)
 const EMISOR = {
   cuit: '30-71625497-2',
-  razonSocial: 'MERCURE S.R.L.',
-  domicilio: 'Av. Corrientes 1234 - CABA',
+  razonSocial: 'MERCURE SRL',
+  domicilio: 'MZA 14 LT 11 BO San Martin, Palpalá - Jujuy',
   condicionIva: 'IVA Responsable Inscripto',
   inicioActividades: '01/01/2020',
 };
