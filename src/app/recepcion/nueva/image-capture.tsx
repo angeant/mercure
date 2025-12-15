@@ -1,13 +1,15 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
-import { Camera, ImageIcon, X, Plus, RotateCcw, FileText, Package } from "lucide-react";
+import { Camera, ImageIcon, X, Plus, RotateCcw, FileText, Package, MessageSquare } from "lucide-react";
 
 export interface CapturedImage {
   id: string;
   file: File;
   preview: string;
   type: 'remito' | 'carga';
+  // Comentario para dar contexto a la IA
+  comment?: string;
   // Para cargas: si es otra vista del mismo bulto o un bulto nuevo
   cargoMeta?: {
     bultoIndex: number; // Qué bulto es (1, 2, 3...)
@@ -95,6 +97,16 @@ export function ImageCapture({ images, onImagesChange, onAnalyze, isAnalyzing }:
       return img;
     }));
   };
+
+  // Actualizar comentario de una imagen
+  const updateComment = (id: string, comment: string) => {
+    onImagesChange(images.map(img => 
+      img.id === id ? { ...img, comment } : img
+    ));
+  };
+
+  // Estado para mostrar/ocultar campo de comentario
+  const [showCommentFor, setShowCommentFor] = useState<string | null>(null);
 
   // Drag & drop
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -194,6 +206,20 @@ export function ImageCapture({ images, onImagesChange, onAnalyze, isAnalyzing }:
                     {idx + 1}
                   </div>
 
+                  {/* Botón comentario */}
+                  <button
+                    type="button"
+                    onClick={() => setShowCommentFor(showCommentFor === img.id ? null : img.id)}
+                    className={`absolute top-1 right-7 w-5 h-5 rounded-full flex items-center justify-center transition-all ${
+                      img.comment 
+                        ? 'bg-blue-500 text-white opacity-100' 
+                        : 'bg-neutral-800/70 text-white opacity-0 group-hover:opacity-100'
+                    }`}
+                    title="Agregar contexto para la IA"
+                  >
+                    <MessageSquare className="h-3 w-3" />
+                  </button>
+
                   {/* Botón eliminar */}
                   <button
                     type="button"
@@ -203,8 +229,15 @@ export function ImageCapture({ images, onImagesChange, onAnalyze, isAnalyzing }:
                     <X className="h-3 w-3" />
                   </button>
 
-                  {/* Para cargas: toggle vista alternativa */}
-                  {activeTab === 'carga' && img.cargoMeta && (
+                  {/* Indicador de comentario */}
+                  {img.comment && (
+                    <div className="absolute bottom-1 left-1 right-1 text-[9px] bg-blue-500/90 text-white px-1 py-0.5 rounded truncate">
+                      💬 {img.comment}
+                    </div>
+                  )}
+
+                  {/* Para cargas sin comentario: toggle vista alternativa */}
+                  {activeTab === 'carga' && img.cargoMeta && !img.comment && (
                     <button
                       type="button"
                       onClick={() => toggleAlternateView(img.id)}
@@ -230,6 +263,30 @@ export function ImageCapture({ images, onImagesChange, onAnalyze, isAnalyzing }:
                 <span className="text-[10px] mt-1">Agregar</span>
               </button>
             </div>
+
+            {/* Campo de comentario expandido */}
+            {showCommentFor && (
+              <div className="mt-3 p-2 bg-blue-50 border border-blue-200 rounded-lg">
+                <label className="text-xs font-medium text-blue-800 mb-1 block">
+                  💬 Contexto para la IA (imagen #{(activeTab === 'remito' ? remitoImages : cargaImages).findIndex(img => img.id === showCommentFor) + 1})
+                </label>
+                <textarea
+                  value={images.find(img => img.id === showCommentFor)?.comment || ''}
+                  onChange={(e) => updateComment(showCommentFor, e.target.value)}
+                  placeholder="Ej: En esta foto hay paquetes de más porque va con 2 remitos distintos..."
+                  className="w-full h-16 px-2 py-1.5 text-sm border border-blue-200 rounded resize-none focus:outline-none focus:border-blue-400"
+                />
+                <div className="flex justify-end mt-1">
+                  <button
+                    type="button"
+                    onClick={() => setShowCommentFor(null)}
+                    className="text-xs text-blue-600 hover:text-blue-800"
+                  >
+                    Cerrar
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           /* Estado vacío - Botones grandes para mobile */
@@ -265,12 +322,13 @@ export function ImageCapture({ images, onImagesChange, onAnalyze, isAnalyzing }:
       </div>
 
       {/* Ayuda contextual */}
-      <div className="text-xs text-neutral-500 px-1">
+      <div className="text-xs text-neutral-500 px-1 space-y-1">
         {activeTab === 'remito' ? (
           <p>💡 Si el remito tiene más de una hoja, sacá foto de cada una.</p>
         ) : (
           <p>💡 Tocá el label debajo de cada foto para marcar si es otra vista del mismo bulto o un bulto diferente.</p>
         )}
+        <p>💬 Tocá el ícono de mensaje para agregar contexto que ayude a la IA a entender mejor las fotos.</p>
       </div>
 
       {/* Resumen rápido */}

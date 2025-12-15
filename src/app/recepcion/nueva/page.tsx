@@ -316,16 +316,22 @@ function NuevaRecepcionContent() {
     try {
       const formDataToSend = new FormData();
       
-      // Agregar todas las imágenes de remito
+      // Agregar todas las imágenes de remito con comentarios
       remitoImages.forEach((img, idx) => {
         formDataToSend.append(`remito_${idx}`, img.file);
+        if (img.comment) {
+          formDataToSend.append(`remito_${idx}_comment`, img.comment);
+        }
       });
       
-      // Agregar todas las imágenes de carga con metadata
+      // Agregar todas las imágenes de carga con metadata y comentarios
       cargaImages.forEach((img, idx) => {
         formDataToSend.append(`carga_${idx}`, img.file);
         if (img.cargoMeta) {
           formDataToSend.append(`carga_${idx}_meta`, JSON.stringify(img.cargoMeta));
+        }
+        if (img.comment) {
+          formDataToSend.append(`carga_${idx}_comment`, img.comment);
         }
       });
       

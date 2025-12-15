@@ -16,6 +16,22 @@ export async function POST(request: NextRequest) {
     const remitoImage = formData.get('remito') as File | null;
     const cargaImage = formData.get('carga') as File | null;
 
+    // Leer comentarios del usuario para dar contexto a la IA
+    const userComments: string[] = [];
+    
+    // Buscar comentarios de todas las imágenes
+    for (let i = 0; i < 10; i++) {
+      const remitoComment = formData.get(`remito_${i}_comment`) as string | null;
+      const cargaComment = formData.get(`carga_${i}_comment`) as string | null;
+      
+      if (remitoComment) {
+        userComments.push(`[Comentario del usuario sobre remito ${i + 1}]: ${remitoComment}`);
+      }
+      if (cargaComment) {
+        userComments.push(`[Comentario del usuario sobre carga ${i + 1}]: ${cargaComment}`);
+      }
+    }
+
     if (!remitoImage && !cargaImage) {
       return new Response(
         JSON.stringify({ error: 'Se requiere al menos una imagen' }),
@@ -75,6 +91,11 @@ export async function POST(request: NextRequest) {
 
 ${remitoImage ? 'IMAGEN 1: REMITO/FACTURA' : ''}
 ${cargaImage ? `IMAGEN ${remitoImage ? '2' : '1'}: FOTO DE LA CARGA FÍSICA` : ''}
+
+${userComments.length > 0 ? `
+⚠️ NOTAS DEL OPERADOR (tener muy en cuenta):
+${userComments.join('\n')}
+` : ''}
 
 🔍 CLIENTES REGISTRADOS EN EL SISTEMA:
 ${clientList || '(Sin clientes registrados)'}
