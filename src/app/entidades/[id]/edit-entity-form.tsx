@@ -22,6 +22,13 @@ interface Entity {
   notes: string | null;
 }
 
+interface CommercialTerms {
+  id: number;
+  tariff_modifier: number;
+  insurance_rate: number;
+  credit_days: number;
+}
+
 const ENTITY_TYPES = [
   { value: 'cliente', label: 'Cliente' },
   { value: 'proveedor', label: 'Proveedor' },
@@ -36,7 +43,7 @@ const PAYMENT_TERMS = [
   { value: 'transferencia', label: 'Transferencia' },
 ];
 
-export function EditEntityForm({ entity }: { entity: Entity }) {
+export function EditEntityForm({ entity, commercialTerms }: { entity: Entity; commercialTerms: CommercialTerms | null }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -54,7 +61,13 @@ export function EditEntityForm({ entity }: { entity: Entity }) {
     postal_code: entity.postal_code || '',
     contact_name: entity.contact_name || '',
     notes: entity.notes || '',
+    // Acuerdo comercial
+    tariff_modifier: commercialTerms?.tariff_modifier?.toString() || '0',
+    insurance_rate: commercialTerms?.insurance_rate ? (Number(commercialTerms.insurance_rate) * 100).toString() : '0.8',
+    credit_days: commercialTerms?.credit_days?.toString() || '0',
   });
+  
+  const [hasCommercialTerms, setHasCommercialTerms] = useState(!!commercialTerms);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     setFormData(prev => ({
@@ -69,6 +82,7 @@ export function EditEntityForm({ entity }: { entity: Entity }) {
     setError(null);
 
     try {
+      // Actualizar entidad
       const { error: updateError } = await supabase
         .from('mercure_entities')
         .update({
@@ -89,6 +103,41 @@ export function EditEntityForm({ entity }: { entity: Entity }) {
 
       if (updateError) {
         throw new Error(updateError.message);
+      }
+
+      // Guardar o actualizar términos comerciales si están habilitados
+      if (hasCommercialTerms) {
+        const termsData = {
+          entity_id: entity.id,
+          tariff_modifier: parseFloat(formData.tariff_modifier) || 0,
+          insurance_rate: (parseFloat(formData.insurance_rate) || 0.8) / 100, // Convertir de % a decimal
+          credit_days: parseInt(formData.credit_days) || 0,
+        };
+
+        if (commercialTerms) {
+          // Actualizar existente
+          const { error: termsError } = await supabase
+            .from('mercure_client_commercial_terms')
+            .update(termsData)
+            .eq('id', commercialTerms.id);
+          
+          if (termsError) throw new Error(termsError.message);
+        } else {
+          // Crear nuevo
+          const { error: termsError } = await supabase
+            .from('mercure_client_commercial_terms')
+            .insert(termsData);
+          
+          if (termsError) throw new Error(termsError.message);
+        }
+      } else if (commercialTerms) {
+        // Si se deshabilitó, eliminar los términos
+        const { error: deleteError } = await supabase
+          .from('mercure_client_commercial_terms')
+          .delete()
+          .eq('id', commercialTerms.id);
+        
+        if (deleteError) throw new Error(deleteError.message);
       }
 
       router.push('/entidades');
@@ -274,6 +323,90 @@ export function EditEntityForm({ entity }: { entity: Entity }) {
             className="w-full px-3 py-2 border border-neutral-200 rounded text-sm focus:border-neutral-400 focus:ring-0 resize-none"
           />
         </div>
+      </div>
+
+      {/* Acuerdo Comercial */}
+      <div className="border border-neutral-200 rounded overflow-hidden mt-6">
+        <div className="bg-neutral-50 px-3 py-2 border-b border-neutral-200 flex items-center justify-between">
+          <span className="text-xs font-medium text-neutral-500 uppercase tracking-wide">
+            Acuerdo Comercial
+          </span>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={hasCommercialTerms}
+              onChange={(e) => setHasCommercialTerms(e.target.checked)}
+              className="w-4 h-4 text-orange-500 border-neutral-300 rounded focus:ring-orange-500"
+            />
+            <span className="text-xs text-neutral-600">Habilitar</span>
+          </label>
+        </div>
+        
+        {hasCommercialTerms && (
+          <div className="p-4 grid grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-neutral-500 uppercase mb-1">
+                Modificador Tarifa (%)
+              </label>
+              <input
+                type="number"
+                name="tariff_modifier"
+                value={formData.tariff_modifier}
+                onChange={handleChange}
+                step="1"
+                className="w-full h-10 px-3 border border-neutral-200 rounded text-sm focus:border-neutral-400 focus:ring-0"
+                placeholder="-15"
+              />
+              <p className="text-[10px] text-neutral-400 mt-1">
+                Negativo = descuento, Positivo = recargo
+              </p>
+            </div>
+            
+            <div>
+              <label className="block text-xs font-medium text-neutral-500 uppercase mb-1">
+                Tasa Seguro (%)
+              </label>
+              <input
+                type="number"
+                name="insurance_rate"
+                value={formData.insurance_rate}
+                onChange={handleChange}
+                step="0.1"
+                min="0"
+                className="w-full h-10 px-3 border border-neutral-200 rounded text-sm focus:border-neutral-400 focus:ring-0"
+                placeholder="0.8"
+              />
+              <p className="text-[10px] text-neutral-400 mt-1">
+                Ej: 0.8 = 0.8% del valor declarado
+              </p>
+            </div>
+            
+            <div>
+              <label className="block text-xs font-medium text-neutral-500 uppercase mb-1">
+                Días de Crédito
+              </label>
+              <input
+                type="number"
+                name="credit_days"
+                value={formData.credit_days}
+                onChange={handleChange}
+                step="1"
+                min="0"
+                className="w-full h-10 px-3 border border-neutral-200 rounded text-sm focus:border-neutral-400 focus:ring-0"
+                placeholder="15"
+              />
+              <p className="text-[10px] text-neutral-400 mt-1">
+                0 = contado
+              </p>
+            </div>
+          </div>
+        )}
+        
+        {!hasCommercialTerms && (
+          <div className="p-4 text-sm text-neutral-400 text-center">
+            Sin acuerdo comercial - Se aplicará tarifa general
+          </div>
+        )}
       </div>
 
       <div className="flex gap-3 pt-4">
