@@ -76,12 +76,10 @@ export async function GET(request: NextRequest) {
   <style>
     @page {
       size: A4;
-      margin: 0;
+      margin: 15mm 20mm;
     }
     @media print {
       html, body {
-        margin: 0 !important;
-        padding: 0 !important;
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
       }
@@ -92,9 +90,10 @@ export async function GET(request: NextRequest) {
       font-family: 'Helvetica Neue', Arial, sans-serif; 
       font-size: 11px; 
       color: #333;
-      padding: 15mm;
-      max-width: 210mm;
+      padding: 20px 30px;
+      max-width: 800px;
       margin: 0 auto;
+      background: white;
     }
     .header { 
       display: flex; 
