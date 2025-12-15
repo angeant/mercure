@@ -190,6 +190,7 @@ export function ShipmentList({ shipments }: { shipments: Shipment[] }) {
                 <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Destinatario</th>
                 <th className="px-3 py-2 text-right text-xs font-medium text-neutral-500 uppercase">Bultos</th>
                 <th className="px-3 py-2 text-right text-xs font-medium text-neutral-500 uppercase">Kg</th>
+                <th className="px-3 py-2 text-right text-xs font-medium text-neutral-500 uppercase">m³</th>
                 <th className="px-3 py-2 text-right text-xs font-medium text-neutral-500 uppercase">Valor</th>
                 <th className="px-3 py-2 text-right text-xs font-medium text-neutral-500 uppercase">Flete</th>
                 <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Estado</th>
@@ -235,6 +236,7 @@ export function ShipmentList({ shipments }: { shipments: Shipment[] }) {
                   <td className="px-3 py-2 text-neutral-600 truncate max-w-[120px]">{s.recipient?.legal_name || '-'}</td>
                   <td className="px-3 py-2 text-right text-neutral-600">{s.package_quantity || '-'}</td>
                   <td className="px-3 py-2 text-right text-neutral-600">{s.weight_kg || '-'}</td>
+                  <td className="px-3 py-2 text-right text-neutral-600">{s.volume_m3 || '-'}</td>
                   <td className="px-3 py-2 text-right text-neutral-600">{s.declared_value ? `$${s.declared_value.toLocaleString('es-AR')}` : '-'}</td>
                   <td className="px-3 py-2 text-right text-neutral-900 font-medium">
                     {s.quotation?.total_price 
@@ -270,7 +272,7 @@ export function ShipmentList({ shipments }: { shipments: Shipment[] }) {
             </tbody>
             <tfoot>
               <tr className="bg-neutral-100 border-t border-neutral-300">
-                <td colSpan={7} className="px-3 py-2 text-right text-sm font-bold text-neutral-700">
+                <td colSpan={8} className="px-3 py-2 text-right text-sm font-bold text-neutral-700">
                   TOTAL FLETE
                 </td>
                 <td className="px-3 py-2 text-right text-sm font-bold text-neutral-900">
