@@ -8,7 +8,12 @@ import { ShipmentList } from "./shipment-list";
 async function getRecentShipments() {
   const { data } = await supabase
     .from('mercure_shipments')
-    .select(`*, sender:mercure_entities!sender_id(legal_name), recipient:mercure_entities!recipient_id(legal_name)`)
+    .select(`
+      *,
+      sender:mercure_entities!sender_id(legal_name),
+      recipient:mercure_entities!recipient_id(legal_name),
+      quotation:mercure_quotations(total_price)
+    `)
     .in('status', ['received', 'in_warehouse', 'ingresada'])
     .is('trip_id', null)
     .order('created_at', { ascending: false })
