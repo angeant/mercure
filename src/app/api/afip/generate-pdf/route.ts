@@ -354,7 +354,7 @@ export async function GET(request: NextRequest) {
   </div>
   
   <div class="footer">
-    Comprobante autorizado por AFIP - Verifique este comprobante en: www.afip.gob.ar/fe/qr/
+    Comprobante autorizado - Verifique este comprobante en: www.afip.gob.ar/fe/qr/
   </div>
   
   <script>

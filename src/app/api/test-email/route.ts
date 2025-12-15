@@ -187,7 +187,7 @@ export async function GET(request: NextRequest) {
     </div>
     <div class="footer">
       <p style="margin: 0;">
-        Comprobante fiscal electrónico autorizado por AFIP.<br>
+        Comprobante fiscal electrónico autorizado.<br>
         Verifique en <a href="https://www.afip.gob.ar/fe/qr/">afip.gob.ar/fe/qr</a>
       </p>
       <div class="kalia-footer">
