@@ -5,8 +5,8 @@ import puppeteer from 'puppeteer-core';
 // Datos del emisor (Mercure)
 const EMISOR = {
   cuit: '30-71625497-2',
-  razonSocial: 'MERCURE SRL',
-  domicilio: 'MZA 14 LT 11 BO San Martin, Palpalá - Jujuy',
+  razonSocial: 'MERCURE S.R.L.',
+  domicilio: 'La Higuera 10, Los Perales - San Salvador de Jujuy, Jujuy - CP 4600',
   condicionIva: 'IVA Responsable Inscripto',
   inicioActividades: '01/01/2020',
 };
