@@ -14,18 +14,23 @@ interface Entity {
 }
 
 const ORIGENES = [
+  'BUENOS AIRES',
+  'CORDOBA',
   'LANUS',
-  'JUJUY',
+  'MENDOZA',
+  'ROSARIO',
   'SALTA',
   'TUCUMAN',
 ];
 
 const DESTINOS = [
   'JUJUY',
+  'BUENOS AIRES',
+  'CORDOBA',
   'SALTA',
   'TUCUMAN',
   'LANUS',
-  'BUENOS AIRES',
+  'MENDOZA',
 ];
 
 // Formatear número como moneda argentina
