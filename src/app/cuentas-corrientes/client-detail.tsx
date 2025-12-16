@@ -3,17 +3,14 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { 
   FileText, 
   Check, 
   Loader2, 
   Download, 
-  ExternalLink,
-  Receipt,
   History,
-  Zap
+  Zap,
+  ArrowRight
 } from "lucide-react";
 import Link from "next/link";
 import { useUser } from "@clerk/nextjs";
@@ -70,24 +67,13 @@ function formatDate(date: string, includeTime = false): string {
   const options: Intl.DateTimeFormatOptions = {
     day: '2-digit',
     month: '2-digit',
-    year: 'numeric',
+    year: '2-digit',
   };
   if (includeTime) {
     options.hour = '2-digit';
     options.minute = '2-digit';
   }
   return new Date(date).toLocaleDateString('es-AR', options);
-}
-
-function getStatusVariant(status: string): "default" | "success" | "warning" | "error" | "info" {
-  switch (status) {
-    case 'conformada': case 'pagada': return 'success';
-    case 'generada': case 'enviada': return 'warning';
-    case 'disputada': return 'error';
-    case 'facturada': return 'info';
-    case 'anulada': return 'default';
-    default: return 'default';
-  }
 }
 
 export function ClientDetail({ clientId, clientName, clientTaxId }: ClientDetailProps) {
@@ -330,8 +316,8 @@ export function ClientDetail({ clientId, clientName, clientTaxId }: ClientDetail
   if (loading) {
     return (
       <div className="p-6 text-center">
-        <Loader2 className="w-5 h-5 animate-spin inline-block mr-2 text-neutral-400" />
-        <span className="text-neutral-500">Cargando...</span>
+        <Loader2 className="w-4 h-4 animate-spin inline-block mr-2 text-neutral-400" />
+        <span className="text-sm text-neutral-500">Cargando...</span>
       </div>
     );
   }
@@ -339,34 +325,26 @@ export function ClientDetail({ clientId, clientName, clientTaxId }: ClientDetail
   return (
     <div className="p-4">
       {/* Tabs */}
-      <div className="flex items-center gap-1 mb-4 border-b border-neutral-200">
+      <div className="flex gap-4 mb-4 text-sm">
         <button
           onClick={() => setActiveTab('remitos')}
-          className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+          className={`pb-1 transition-colors ${
             activeTab === 'remitos'
-              ? 'border-orange-500 text-orange-600'
-              : 'border-transparent text-neutral-500 hover:text-neutral-700'
+              ? 'text-neutral-900 border-b-2 border-neutral-900'
+              : 'text-neutral-500 hover:text-neutral-700'
           }`}
         >
-          <Receipt className="w-4 h-4" />
-          Remitos Pendientes
-          {shipments.length > 0 && (
-            <Badge variant="warning" className="ml-1">{shipments.length}</Badge>
-          )}
+          Remitos pendientes {shipments.length > 0 && <span className="text-neutral-400">({shipments.length})</span>}
         </button>
         <button
           onClick={() => setActiveTab('historico')}
-          className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+          className={`pb-1 transition-colors ${
             activeTab === 'historico'
-              ? 'border-orange-500 text-orange-600'
-              : 'border-transparent text-neutral-500 hover:text-neutral-700'
+              ? 'text-neutral-900 border-b-2 border-neutral-900'
+              : 'text-neutral-500 hover:text-neutral-700'
           }`}
         >
-          <History className="w-4 h-4" />
-          Histórico
-          {settlements.length > 0 && (
-            <span className="ml-1 text-xs text-neutral-400">({settlements.length})</span>
-          )}
+          Histórico {settlements.length > 0 && <span className="text-neutral-400">({settlements.length})</span>}
         </button>
       </div>
 
@@ -374,30 +352,25 @@ export function ClientDetail({ clientId, clientName, clientTaxId }: ClientDetail
       {activeTab === 'remitos' && (
         <div>
           {shipments.length === 0 ? (
-            <div className="py-8 text-center">
-              <FileText className="w-8 h-8 text-neutral-300 mx-auto mb-2" />
-              <p className="text-neutral-500 text-sm">No hay remitos pendientes</p>
+            <div className="py-6 text-center text-sm text-neutral-400">
+              No hay remitos pendientes
             </div>
           ) : (
             <>
               <div className="flex items-center justify-between mb-3">
-                <button onClick={toggleAll} className="text-xs text-orange-500 hover:underline">
+                <button onClick={toggleAll} className="text-xs text-neutral-600 hover:text-neutral-900">
                   {selectedShipments.size === shipments.length ? 'Deseleccionar todos' : 'Seleccionar todos'}
                 </button>
-                <div className="flex items-center gap-3">
-                  <span className="text-sm text-neutral-500">
-                    {selectedShipments.size} seleccionados
-                  </span>
-                  <span className="text-sm font-medium text-neutral-900">
-                    Total: <span className="font-mono">${formatCurrency(selectedTotal)}</span>
-                  </span>
+                <div className="flex items-center gap-4 text-sm">
+                  <span className="text-neutral-500">{selectedShipments.size} seleccionados</span>
+                  <span className="font-medium font-mono">${formatCurrency(selectedTotal)}</span>
                 </div>
               </div>
 
               <div className="border border-neutral-200 rounded overflow-hidden mb-4">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="bg-white border-b border-neutral-200">
+                    <tr className="bg-neutral-50 border-b border-neutral-200">
                       <th className="px-3 py-2 w-8"></th>
                       <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Remito</th>
                       <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Fecha</th>
@@ -411,12 +384,12 @@ export function ClientDetail({ clientId, clientName, clientTaxId }: ClientDetail
                         key={shipment.id}
                         onClick={() => toggleShipment(shipment.id)}
                         className={`border-b border-neutral-100 last:border-0 cursor-pointer transition-colors ${
-                          selectedShipments.has(shipment.id) ? 'bg-orange-50' : 'bg-white hover:bg-neutral-50'
+                          selectedShipments.has(shipment.id) ? 'bg-neutral-100' : 'hover:bg-neutral-50'
                         }`}
                       >
                         <td className="px-3 py-2">
                           <div className={`w-4 h-4 rounded border flex items-center justify-center ${
-                            selectedShipments.has(shipment.id) ? 'bg-orange-500 border-orange-500' : 'border-neutral-300 bg-white'
+                            selectedShipments.has(shipment.id) ? 'bg-neutral-900 border-neutral-900' : 'border-neutral-300'
                           }`}>
                             {selectedShipments.has(shipment.id) && <Check className="w-3 h-3 text-white" />}
                           </div>
@@ -424,13 +397,13 @@ export function ClientDetail({ clientId, clientName, clientTaxId }: ClientDetail
                         <td className="px-3 py-2 font-mono text-neutral-900">
                           {shipment.delivery_note_number || `#${shipment.id}`}
                         </td>
-                        <td className="px-3 py-2 text-neutral-600 text-xs">
+                        <td className="px-3 py-2 text-neutral-500 text-xs">
                           {formatDate(shipment.created_at)}
                         </td>
                         <td className="px-3 py-2 text-neutral-600 truncate max-w-[150px]">
                           {shipment.recipient_name}
                         </td>
-                        <td className="px-3 py-2 text-right font-mono font-medium text-neutral-900">
+                        <td className="px-3 py-2 text-right font-mono">
                           ${formatCurrency(shipment.calculated_amount)}
                         </td>
                       </tr>
@@ -440,17 +413,17 @@ export function ClientDetail({ clientId, clientName, clientTaxId }: ClientDetail
               </div>
 
               <div className="flex justify-end">
-                <Button
+                <button
                   onClick={handleGenerateSettlement}
                   disabled={selectedShipments.size === 0 || generating}
-                  className="bg-orange-500 hover:bg-orange-600 text-white"
+                  className="h-9 px-4 bg-neutral-900 hover:bg-neutral-800 disabled:bg-neutral-200 disabled:text-neutral-400 text-white text-sm rounded flex items-center gap-2 transition-colors"
                 >
                   {generating ? (
-                    <><Loader2 className="w-4 h-4 animate-spin mr-2" />Generando...</>
+                    <><Loader2 className="w-4 h-4 animate-spin" />Generando...</>
                   ) : (
-                    <><FileText className="w-4 h-4 mr-2" />Liquidar Seleccionados</>
+                    <>Liquidar seleccionados<ArrowRight className="w-4 h-4" /></>
                   )}
-                </Button>
+                </button>
               </div>
             </>
           )}
@@ -461,82 +434,77 @@ export function ClientDetail({ clientId, clientName, clientTaxId }: ClientDetail
       {activeTab === 'historico' && (
         <div>
           {settlements.length === 0 ? (
-            <div className="py-8 text-center">
-              <History className="w-8 h-8 text-neutral-300 mx-auto mb-2" />
-              <p className="text-neutral-500 text-sm">No hay liquidaciones anteriores</p>
+            <div className="py-6 text-center text-sm text-neutral-400">
+              No hay liquidaciones anteriores
             </div>
           ) : (
             <div className="border border-neutral-200 rounded overflow-hidden">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="bg-white border-b border-neutral-200">
+                  <tr className="bg-neutral-50 border-b border-neutral-200">
                     <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Nro.</th>
                     <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Fecha</th>
                     <th className="px-3 py-2 text-right text-xs font-medium text-neutral-500 uppercase">Total</th>
                     <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Estado</th>
                     <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Factura</th>
-                    <th className="px-3 py-2 text-right text-xs font-medium text-neutral-500 uppercase">Acciones</th>
+                    <th className="px-3 py-2"></th>
                   </tr>
                 </thead>
                 <tbody>
                   {settlements.map((settlement) => (
-                    <tr key={settlement.id} className="border-b border-neutral-100 last:border-0 bg-white hover:bg-neutral-50">
-                      <td className="px-3 py-2 font-mono font-medium text-neutral-900">
-                        #{settlement.settlement_number}
-                      </td>
-                      <td className="px-3 py-2 text-neutral-600 text-xs">
-                        {formatDate(settlement.settlement_date, true)}
-                      </td>
-                      <td className="px-3 py-2 text-right font-mono font-medium text-neutral-900">
-                        ${formatCurrency(settlement.total_amount)}
-                      </td>
+                    <tr key={settlement.id} className="border-b border-neutral-100 last:border-0 hover:bg-neutral-50">
+                      <td className="px-3 py-2 font-mono text-neutral-900">#{settlement.settlement_number}</td>
+                      <td className="px-3 py-2 text-neutral-500 text-xs">{formatDate(settlement.settlement_date)}</td>
+                      <td className="px-3 py-2 text-right font-mono">${formatCurrency(settlement.total_amount)}</td>
                       <td className="px-3 py-2">
-                        <Badge variant={getStatusVariant(settlement.status)}>
+                        <span className={`text-xs px-1.5 py-0.5 rounded ${
+                          settlement.status === 'pagada' || settlement.status === 'conformada' 
+                            ? 'bg-neutral-100 text-neutral-700' 
+                            : settlement.status === 'facturada' 
+                            ? 'bg-neutral-100 text-neutral-600'
+                            : settlement.status === 'disputada'
+                            ? 'bg-red-50 text-red-700'
+                            : 'bg-neutral-100 text-neutral-500'
+                        }`}>
                           {SETTLEMENT_STATUS_LABELS[settlement.status] || settlement.status}
-                        </Badge>
+                        </span>
                       </td>
                       <td className="px-3 py-2">
                         {settlement.cae ? (
-                          <div>
-                            <span className="font-mono text-xs text-neutral-600">{settlement.invoice_number}</span>
-                            <span className="block text-xs text-green-600">CAE: {settlement.cae}</span>
-                          </div>
+                          <span className="text-xs font-mono text-neutral-600">{settlement.invoice_number}</span>
                         ) : (
-                          <span className="text-neutral-400 text-xs">Sin facturar</span>
+                          <span className="text-xs text-neutral-400">-</span>
                         )}
                       </td>
-                      <td className="px-3 py-2 text-right">
-                        <div className="flex items-center justify-end gap-1">
+                      <td className="px-3 py-2">
+                        <div className="flex items-center justify-end gap-2">
                           <Link
                             href={`/liquidaciones/${settlement.id}`}
-                            className="inline-flex items-center gap-1 px-2 py-1 text-xs text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100 rounded"
+                            className="text-xs text-neutral-600 hover:text-neutral-900 hover:underline"
                           >
-                            <ExternalLink className="w-3.5 h-3.5" />
                             Ver
                           </Link>
                           {!settlement.cae && settlement.status === 'generada' && (
-                            <Button
-                              size="sm"
+                            <button
                               onClick={() => handleFacturar(settlement.id)}
                               disabled={facturando === settlement.id}
-                              className="h-7 px-2 text-xs bg-green-600 hover:bg-green-700"
+                              className="text-xs px-2 py-1 bg-neutral-900 hover:bg-neutral-800 text-white rounded flex items-center gap-1"
                             >
                               {facturando === settlement.id ? (
                                 <Loader2 className="w-3 h-3 animate-spin" />
                               ) : (
-                                <><Zap className="w-3 h-3 mr-1" />AFIP</>
+                                <><Zap className="w-3 h-3" />AFIP</>
                               )}
-                            </Button>
+                            </button>
                           )}
                           {settlement.invoice_pdf_url && (
                             <a
                               href={settlement.invoice_pdf_url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded"
+                              className="text-xs text-neutral-600 hover:text-neutral-900 flex items-center gap-1"
                             >
-                              <Download className="w-3.5 h-3.5" />
-                              PDF
+                              <Download className="w-3 h-3" />
                             </a>
                           )}
                         </div>
@@ -552,4 +520,3 @@ export function ClientDetail({ clientId, clientName, clientTaxId }: ClientDetail
     </div>
   );
 }
-

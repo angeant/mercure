@@ -1,9 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, ChevronRight, FileText, Search } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
+import { ChevronDown, ChevronRight, Search, ArrowUpDown, Filter } from "lucide-react";
 import { ClientDetail } from "./client-detail";
 
 interface ClientWithBalance {
@@ -23,6 +21,10 @@ interface ClientListProps {
   initialClients: ClientWithBalance[];
 }
 
+type SortField = 'name' | 'balance' | 'shipments';
+type SortDir = 'asc' | 'desc';
+type FilterMode = 'all' | 'with_balance' | 'no_balance';
+
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat('es-AR', {
     style: 'currency',
@@ -36,116 +38,199 @@ function formatDate(date: string | null): string {
   return new Date(date).toLocaleDateString('es-AR', {
     day: '2-digit',
     month: '2-digit',
-    year: 'numeric',
+    year: '2-digit',
   });
 }
 
 export function ClientList({ initialClients }: ClientListProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [expandedClient, setExpandedClient] = useState<number | null>(null);
+  const [sortField, setSortField] = useState<SortField>('balance');
+  const [sortDir, setSortDir] = useState<SortDir>('desc');
+  const [filterMode, setFilterMode] = useState<FilterMode>('all');
 
+  // Filtrar
   const filteredClients = initialClients.filter(client => {
-    if (!searchTerm) return true;
-    const search = searchTerm.toLowerCase();
-    return (
-      client.legal_name.toLowerCase().includes(search) ||
-      (client.tax_id && client.tax_id.toLowerCase().includes(search))
-    );
+    // Filtro de búsqueda
+    if (searchTerm) {
+      const search = searchTerm.toLowerCase();
+      const matchesSearch = client.legal_name.toLowerCase().includes(search) ||
+        (client.tax_id && client.tax_id.toLowerCase().includes(search));
+      if (!matchesSearch) return false;
+    }
+    
+    // Filtro de saldo
+    if (filterMode === 'with_balance' && client.balance <= 0) return false;
+    if (filterMode === 'no_balance' && client.balance > 0) return false;
+    
+    return true;
   });
+
+  // Ordenar
+  const sortedClients = [...filteredClients].sort((a, b) => {
+    let comparison = 0;
+    
+    switch (sortField) {
+      case 'name':
+        comparison = a.legal_name.localeCompare(b.legal_name);
+        break;
+      case 'balance':
+        comparison = a.balance - b.balance;
+        break;
+      case 'shipments':
+        comparison = a.pending_shipments - b.pending_shipments;
+        break;
+    }
+    
+    return sortDir === 'asc' ? comparison : -comparison;
+  });
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDir('desc');
+    }
+  };
 
   const toggleClient = (clientId: number) => {
     setExpandedClient(expandedClient === clientId ? null : clientId);
   };
 
+  const SortButton = ({ field, children }: { field: SortField; children: React.ReactNode }) => (
+    <button
+      onClick={() => handleSort(field)}
+      className={`flex items-center gap-1 text-xs uppercase tracking-wide transition-colors ${
+        sortField === field ? 'text-neutral-900 font-medium' : 'text-neutral-500 hover:text-neutral-700'
+      }`}
+    >
+      {children}
+      {sortField === field && (
+        <ArrowUpDown className={`w-3 h-3 ${sortDir === 'asc' ? 'rotate-180' : ''}`} />
+      )}
+    </button>
+  );
+
   return (
     <div className="space-y-3">
-      {/* Buscador */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-        <Input
-          type="text"
-          placeholder="Buscar por nombre o CUIT..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-9 h-9"
-        />
+      {/* Controles */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        {/* Búsqueda */}
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+          <input
+            type="text"
+            placeholder="Buscar por nombre o CUIT..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full h-9 pl-9 pr-3 border border-neutral-200 rounded text-sm focus:border-neutral-400 focus:ring-0"
+          />
+        </div>
+        
+        {/* Filtros */}
+        <div className="flex gap-1 p-1 bg-neutral-100 rounded">
+          <button
+            onClick={() => setFilterMode('all')}
+            className={`h-7 px-3 text-xs rounded transition-colors ${
+              filterMode === 'all' 
+                ? 'bg-white text-neutral-900 shadow-sm' 
+                : 'text-neutral-600 hover:text-neutral-900'
+            }`}
+          >
+            Todos ({initialClients.length})
+          </button>
+          <button
+            onClick={() => setFilterMode('with_balance')}
+            className={`h-7 px-3 text-xs rounded transition-colors ${
+              filterMode === 'with_balance' 
+                ? 'bg-white text-neutral-900 shadow-sm' 
+                : 'text-neutral-600 hover:text-neutral-900'
+            }`}
+          >
+            Con saldo ({initialClients.filter(c => c.balance > 0).length})
+          </button>
+          <button
+            onClick={() => setFilterMode('no_balance')}
+            className={`h-7 px-3 text-xs rounded transition-colors ${
+              filterMode === 'no_balance' 
+                ? 'bg-white text-neutral-900 shadow-sm' 
+                : 'text-neutral-600 hover:text-neutral-900'
+            }`}
+          >
+            Sin saldo
+          </button>
+        </div>
       </div>
 
-      {/* Lista */}
-      <div className="border border-neutral-200 rounded-lg overflow-hidden">
+      {/* Tabla */}
+      <div className="border border-neutral-200 rounded overflow-hidden">
         {/* Header */}
-        <div className="bg-neutral-50 border-b border-neutral-200 grid grid-cols-12 gap-2 px-3 py-2 text-xs font-medium text-neutral-500 uppercase tracking-wide">
+        <div className="bg-neutral-50 border-b border-neutral-200 grid grid-cols-12 gap-2 px-3 py-2">
           <div className="col-span-1"></div>
-          <div className="col-span-4">Cliente</div>
-          <div className="col-span-2">CUIT</div>
-          <div className="col-span-1 text-center">Remitos</div>
-          <div className="col-span-2 text-right">Saldo</div>
-          <div className="col-span-2 text-right">Última Liq.</div>
+          <div className="col-span-4">
+            <SortButton field="name">Cliente</SortButton>
+          </div>
+          <div className="col-span-2 text-xs text-neutral-500 uppercase tracking-wide">CUIT</div>
+          <div className="col-span-1 text-center">
+            <SortButton field="shipments">Remitos</SortButton>
+          </div>
+          <div className="col-span-2 text-right">
+            <SortButton field="balance">Saldo</SortButton>
+          </div>
+          <div className="col-span-2 text-right text-xs text-neutral-500 uppercase tracking-wide">Últ. Liq.</div>
         </div>
 
         {/* Filas */}
-        {filteredClients.length === 0 ? (
-          <div className="px-3 py-8 text-center text-neutral-400">
+        {sortedClients.length === 0 ? (
+          <div className="px-3 py-8 text-center text-neutral-400 text-sm">
             {searchTerm ? 'No se encontraron clientes' : 'No hay clientes con cuenta corriente'}
           </div>
         ) : (
-          filteredClients.map((client) => (
-            <div key={client.id}>
+          sortedClients.map((client) => (
+            <div key={client.id} className="border-b border-neutral-100 last:border-0">
               {/* Fila principal */}
               <div
                 onClick={() => toggleClient(client.id)}
-                className={`grid grid-cols-12 gap-2 px-3 py-2.5 items-center cursor-pointer transition-colors ${
+                className={`grid grid-cols-12 gap-2 px-3 py-2 items-center cursor-pointer transition-colors ${
                   expandedClient === client.id 
-                    ? 'bg-orange-50 border-l-2 border-l-orange-500' 
-                    : 'hover:bg-neutral-50 border-l-2 border-l-transparent'
+                    ? 'bg-neutral-100' 
+                    : 'hover:bg-neutral-50'
                 }`}
               >
                 <div className="col-span-1">
                   {expandedClient === client.id ? (
                     <ChevronDown className="w-4 h-4 text-neutral-400" />
                   ) : (
-                    <ChevronRight className="w-4 h-4 text-neutral-400" />
+                    <ChevronRight className="w-4 h-4 text-neutral-300" />
                   )}
                 </div>
 
                 <div className="col-span-4">
-                  <p className="font-medium text-sm text-neutral-900 truncate">
-                    {client.legal_name}
-                  </p>
+                  <p className="text-sm text-neutral-900 truncate">{client.legal_name}</p>
                 </div>
 
                 <div className="col-span-2">
-                  <span className="text-xs font-mono text-neutral-600">
-                    {client.tax_id || '-'}
-                  </span>
+                  <span className="text-xs font-mono text-neutral-500">{client.tax_id || '-'}</span>
                 </div>
 
                 <div className="col-span-1 text-center">
-                  {client.pending_shipments > 0 ? (
-                    <Badge variant="warning">{client.pending_shipments}</Badge>
-                  ) : (
-                    <span className="text-neutral-400 text-sm">0</span>
-                  )}
+                  <span className={`text-sm ${client.pending_shipments > 0 ? 'text-neutral-900' : 'text-neutral-400'}`}>
+                    {client.pending_shipments}
+                  </span>
                 </div>
 
                 <div className="col-span-2 text-right">
-                  <span className={`text-sm font-mono font-medium ${
-                    client.balance > 0 ? 'text-orange-600' : 'text-neutral-400'
-                  }`}>
+                  <span className={`text-sm font-mono ${client.balance > 0 ? 'text-neutral-900 font-medium' : 'text-neutral-400'}`}>
                     {client.balance > 0 ? formatCurrency(client.balance) : '$0,00'}
                   </span>
                 </div>
 
                 <div className="col-span-2 text-right">
                   {client.last_settlement_number ? (
-                    <div className="flex items-center justify-end gap-1.5">
-                      <span className="text-xs text-neutral-500">
-                        #{client.last_settlement_number}
-                      </span>
-                      <span className="text-xs text-neutral-400">
-                        {formatDate(client.last_settlement_date)}
-                      </span>
-                    </div>
+                    <span className="text-xs text-neutral-500">
+                      #{client.last_settlement_number} · {formatDate(client.last_settlement_date)}
+                    </span>
                   ) : (
                     <span className="text-xs text-neutral-400">-</span>
                   )}
@@ -154,7 +239,7 @@ export function ClientList({ initialClients }: ClientListProps) {
 
               {/* Panel expandido */}
               {expandedClient === client.id && (
-                <div className="border-t border-neutral-200 bg-neutral-50/50">
+                <div className="border-t border-neutral-200 bg-neutral-50">
                   <ClientDetail 
                     clientId={client.id} 
                     clientName={client.legal_name}
@@ -167,18 +252,10 @@ export function ClientList({ initialClients }: ClientListProps) {
         )}
       </div>
 
-      {/* Leyenda */}
-      <div className="flex items-center gap-4 text-xs text-neutral-500">
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded bg-orange-500"></div>
-          <span>Con saldo pendiente</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <FileText className="w-3 h-3" />
-          <span>Click para ver detalle y liquidar</span>
-        </div>
-      </div>
+      {/* Info */}
+      <p className="text-xs text-neutral-400">
+        Mostrando {sortedClients.length} de {initialClients.length} clientes
+      </p>
     </div>
   );
 }
-
