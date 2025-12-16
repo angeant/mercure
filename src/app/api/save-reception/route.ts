@@ -263,14 +263,14 @@ export async function POST(request: NextRequest) {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            clientId: recipientId, // El que paga es normalmente el destinatario
+            clientId: recipientId,
             cargo: {
               weightKg,
               volumeM3,
               declaredValue,
             },
             origin: data.origin || 'Buenos Aires',
-            destination: 'Jujuy',
+            destination: 'San Salvador de Jujuy', // Nombre completo para match con tarifas
           }),
         });
 
@@ -290,7 +290,7 @@ export async function POST(request: NextRequest) {
                 customer_name: data.recipientName,
                 customer_cuit: data.recipientCuit || null,
                 origin: data.origin || 'Buenos Aires',
-                destination: 'Jujuy',
+                destination: 'San Salvador de Jujuy',
                 weight_kg: weightKg,
                 volume_m3: volumeM3,
                 volumetric_weight_kg: pricing.breakdown?.peso_volumetrico || null,

@@ -139,6 +139,43 @@ function NuevaRecepcionContent() {
   const [senderStatus, setSenderStatus] = useState<'pending' | 'found'>('pending');
 
   // Estado para pricing (árbol de decisión A/B/C)
+  interface DebugInfo {
+    input: {
+      weightKg: number;
+      volumeM3: number;
+      declaredValue: number;
+      origin: string;
+      destination: string;
+    };
+    decision: {
+      pesoReal: number;
+      pesoVolumetrico: number;
+      factorConversion: number;
+      pesoACobrar: number;
+      criterioUsado: 'PESO_REAL' | 'PESO_VOLUMETRICO' | 'VOLUMEN_DIRECTO';
+      explicacion: string;
+    };
+    tarifa: {
+      encontrada: boolean;
+      id?: number;
+      origen?: string;
+      destino?: string;
+      rangoKg?: string;
+      precioLista?: number;
+      queryUsada?: string;
+    };
+    calculo: {
+      fleteLista: number;
+      modificador?: number;
+      fleteConModificador: number;
+      valorDeclarado: number;
+      tasaSeguro: number;
+      seguro: number;
+      total: number;
+      formula: string;
+    };
+  }
+  
   interface PricingInfo {
     path: 'A' | 'B' | 'C';
     pathName: string;
@@ -156,6 +193,7 @@ function NuevaRecepcionContent() {
       insuranceRate: number;
       creditDays?: number;
     };
+    debug?: DebugInfo;
   }
   const [pricingInfo, setPricingInfo] = useState<PricingInfo | null>(null);
   const [calculatedPrice, setCalculatedPrice] = useState<number | null>(null);
@@ -999,69 +1037,123 @@ function NuevaRecepcionContent() {
               </div>
               
               {/* Detalle del cálculo de pricing (colapsable) */}
-              {showFormulaDetails && pricingInfo && pricingInfo.pricing.breakdown && (
+              {showFormulaDetails && pricingInfo && (
                 <div className="px-3 py-2 bg-neutral-100 border-b border-neutral-200 text-xs overflow-x-auto">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1">
-                    {/* Columna izquierda: Datos de carga */}
-                    <div className="space-y-1">
-                      <div className="font-medium text-neutral-600 mb-1">Datos de carga:</div>
-                      <div className="flex justify-between">
-                        <span>Peso real:</span>
-                        <span className="font-mono">{formData.weightKg || 0} kg</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Volumen:</span>
-                        <span className="font-mono">{formData.volumeM3 || 0} m³</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Peso volumétrico (×300):</span>
-                        <span className="font-mono">{((parseFloat(formData.volumeM3) || 0) * 300).toFixed(1)} kg</span>
-                      </div>
-                      <div className="flex justify-between font-medium text-neutral-800 pt-1 border-t border-neutral-300">
-                        <span>Peso a cobrar:</span>
-                        <span className="font-mono">
-                          {Math.max(
-                            parseFloat(formData.weightKg) || 0,
-                            (parseFloat(formData.volumeM3) || 0) * 300
-                          ).toFixed(1)} kg
-                          {(parseFloat(formData.volumeM3) || 0) * 300 > (parseFloat(formData.weightKg) || 0) 
-                            ? ' (por volumen)' 
-                            : ' (por peso)'}
-                        </span>
-                      </div>
-                    </div>
-                    
-                    {/* Columna derecha: Desglose de precio */}
-                    <div className="space-y-1">
-                      <div className="font-medium text-neutral-600 mb-1">Desglose:</div>
-                      {Object.entries(pricingInfo.pricing.breakdown).map(([key, value]) => (
-                        typeof value === 'number' && (
-                          <div key={key} className="flex justify-between">
-                            <span className="capitalize">{key.replace(/_/g, ' ')}:</span>
-                            <span className={`font-mono ${value < 0 ? 'text-green-700' : ''}`}>
-                              {value < 0 ? '-' : ''}${Math.abs(value).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
-                            </span>
+                  {pricingInfo.debug ? (
+                    <div className="space-y-3">
+                      {/* Decisión de peso */}
+                      <div className="bg-white p-2 rounded border border-neutral-200">
+                        <div className="font-medium text-neutral-700 mb-1">📐 Decisión de peso:</div>
+                        <div className="text-neutral-600 mb-2">{pricingInfo.debug.decision.explicacion}</div>
+                        <div className="grid grid-cols-3 gap-2 text-center">
+                          <div className={`p-1 rounded ${pricingInfo.debug.decision.criterioUsado === 'PESO_REAL' ? 'bg-green-100 text-green-800 font-medium' : 'bg-neutral-50'}`}>
+                            <div className="text-[10px] uppercase">Peso Real</div>
+                            <div className="font-mono">{pricingInfo.debug.decision.pesoReal} kg</div>
                           </div>
-                        )
-                      ))}
-                      <div className="flex justify-between font-bold text-neutral-900 pt-1 border-t border-neutral-300">
-                        <span>TOTAL FLETE:</span>
-                        <span className="font-mono">${calculatedPrice?.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                          <div className={`p-1 rounded ${pricingInfo.debug.decision.criterioUsado === 'PESO_VOLUMETRICO' ? 'bg-green-100 text-green-800 font-medium' : 'bg-neutral-50'}`}>
+                            <div className="text-[10px] uppercase">Peso Volum.</div>
+                            <div className="font-mono">{pricingInfo.debug.decision.pesoVolumetrico.toFixed(1)} kg</div>
+                          </div>
+                          <div className="p-1 rounded bg-blue-100 text-blue-800 font-medium">
+                            <div className="text-[10px] uppercase">→ A Cobrar</div>
+                            <div className="font-mono">{pricingInfo.debug.decision.pesoACobrar} kg</div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Tarifa encontrada */}
+                      <div className="bg-white p-2 rounded border border-neutral-200">
+                        <div className="font-medium text-neutral-700 mb-1">📋 Tarifa:</div>
+                        {pricingInfo.debug.tarifa.encontrada ? (
+                          <div className="space-y-1">
+                            <div className="flex justify-between">
+                              <span>Ruta:</span>
+                              <span className="font-medium">{pricingInfo.debug.tarifa.origen} → {pricingInfo.debug.tarifa.destino}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Rango:</span>
+                              <span className="font-mono">{pricingInfo.debug.tarifa.rangoKg} kg</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Precio lista:</span>
+                              <span className="font-mono font-medium">${pricingInfo.debug.tarifa.precioLista?.toLocaleString('es-AR')}</span>
+                            </div>
+                            {pricingInfo.debug.tarifa.queryUsada && (
+                              <div className="text-[10px] text-neutral-400 mt-1 p-1 bg-neutral-50 rounded font-mono">
+                                {pricingInfo.debug.tarifa.queryUsada}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="text-red-600">
+                            ⚠️ No se encontró tarifa
+                            {pricingInfo.debug.tarifa.queryUsada && (
+                              <div className="text-[10px] text-neutral-400 mt-1 p-1 bg-neutral-50 rounded font-mono">
+                                {pricingInfo.debug.tarifa.queryUsada}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Fórmula del cálculo */}
+                      <div className="bg-white p-2 rounded border border-neutral-200">
+                        <div className="font-medium text-neutral-700 mb-1">🧮 Cálculo:</div>
+                        <div className="p-2 bg-neutral-800 text-green-400 rounded font-mono text-[11px] whitespace-pre-wrap">
+                          {pricingInfo.debug.calculo.formula}
+                        </div>
+                        <div className="mt-2 grid grid-cols-2 gap-2 text-[11px]">
+                          <div className="flex justify-between">
+                            <span>Flete lista:</span>
+                            <span className="font-mono">${pricingInfo.debug.calculo.fleteLista.toLocaleString('es-AR')}</span>
+                          </div>
+                          {pricingInfo.debug.calculo.modificador !== undefined && (
+                            <div className="flex justify-between">
+                              <span>Modificador:</span>
+                              <span className={`font-mono ${pricingInfo.debug.calculo.modificador < 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                {pricingInfo.debug.calculo.modificador}%
+                              </span>
+                            </div>
+                          )}
+                          <div className="flex justify-between">
+                            <span>Seguro ({(pricingInfo.debug.calculo.tasaSeguro * 1000).toFixed(0)}‰):</span>
+                            <span className="font-mono">${pricingInfo.debug.calculo.seguro.toLocaleString('es-AR')}</span>
+                          </div>
+                          <div className="flex justify-between font-bold">
+                            <span>TOTAL:</span>
+                            <span className="font-mono">${pricingInfo.debug.calculo.total.toLocaleString('es-AR')}</span>
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  
-                  {/* Nota sobre tarifa aplicada */}
-                  {pricingInfo.commercialTerms && (
-                    <div className="mt-2 pt-2 border-t border-neutral-300 text-neutral-500 flex flex-wrap gap-x-4 gap-y-1">
-                      <span>Tarifa: {pricingInfo.commercialTerms.tariffType}</span>
-                      {pricingInfo.commercialTerms.tariffModifier !== 0 && (
-                        <span className={pricingInfo.commercialTerms.tariffModifier < 0 ? 'text-green-700' : 'text-red-600'}>
-                          Descuento: {pricingInfo.commercialTerms.tariffModifier}%
-                        </span>
-                      )}
-                      <span>Seguro: {(pricingInfo.commercialTerms.insuranceRate * 1000).toFixed(1)}‰</span>
+                  ) : pricingInfo.pricing.breakdown ? (
+                    /* Fallback al formato anterior si no hay debug */
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1">
+                      <div className="space-y-1">
+                        <div className="font-medium text-neutral-600 mb-1">Datos de carga:</div>
+                        <div className="flex justify-between">
+                          <span>Peso real:</span>
+                          <span className="font-mono">{formData.weightKg || 0} kg</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Volumen:</span>
+                          <span className="font-mono">{formData.volumeM3 || 0} m³</span>
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="font-medium text-neutral-600 mb-1">Desglose:</div>
+                        {Object.entries(pricingInfo.pricing.breakdown).map(([key, value]) => (
+                          typeof value === 'number' && (
+                            <div key={key} className="flex justify-between">
+                              <span className="capitalize">{key.replace(/_/g, ' ')}:</span>
+                              <span className="font-mono">${Math.abs(value).toLocaleString('es-AR')}</span>
+                            </div>
+                          )
+                        ))}
+                      </div>
                     </div>
+                  ) : (
+                    <div className="text-neutral-500">Sin datos de cotización</div>
                   )}
                 </div>
               )}
@@ -1215,4 +1307,5 @@ function NuevaRecepcionContent() {
     </div>
   );
 }
+
 
