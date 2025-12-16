@@ -3,8 +3,8 @@
  * Documentación: https://www.afip.gob.ar/ws/documentacion/wsaa.asp
  */
 
-import * as crypto from 'crypto';
-import { AFIP_URLS, WSAACredentials } from './types';
+import * as forge from 'node-forge';
+import { WSAACredentials } from './types';
 import { supabase } from '@/lib/supabase';
 
 let cachedCredentials: Record<string, WSAACredentials> = {};
@@ -86,52 +86,53 @@ function generateTRA(service: string): string {
 }
 
 /**
- * Firma el TRA usando PKCS#7/CMS con OpenSSL via crypto
+ * Firma el TRA usando PKCS#7/CMS con node-forge
  * AFIP espera un CMS SignedData en base64
  */
 async function signTRA(tra: string, certPem: string, keyPem: string): Promise<string> {
-  // Para crear una firma CMS válida para AFIP, necesitamos usar openssl
-  // o una librería que implemente CMS/PKCS#7 SignedData
+  // Parsear certificado y clave privada
+  const cert = forge.pki.certificateFromPem(certPem);
+  const privateKey = forge.pki.privateKeyFromPem(keyPem);
   
-  // Alternativa: Ejecutar openssl desde Node.js
-  const { execSync, spawnSync } = await import('child_process');
-  const fs = await import('fs');
-  const os = await import('os');
-  const path = await import('path');
+  // Crear el mensaje PKCS#7 firmado
+  const p7 = forge.pkcs7.createSignedData();
   
-  // Crear archivos temporales
-  const tmpDir = os.tmpdir();
-  const traPath = path.join(tmpDir, `tra_${Date.now()}.xml`);
-  const certPath = path.join(tmpDir, `cert_${Date.now()}.crt`);
-  const keyPath = path.join(tmpDir, `key_${Date.now()}.key`);
-  const cmsPath = path.join(tmpDir, `cms_${Date.now()}.cms`);
+  // Agregar el contenido (TRA XML)
+  p7.content = forge.util.createBuffer(tra, 'utf8');
   
-  try {
-    // Escribir archivos
-    fs.writeFileSync(traPath, tra);
-    fs.writeFileSync(certPath, certPem);
-    fs.writeFileSync(keyPath, keyPem);
-    
-    // Ejecutar openssl smime para crear CMS
-    const cmd = `openssl smime -sign -signer "${certPath}" -inkey "${keyPath}" -in "${traPath}" -outform DER -nodetach -out "${cmsPath}"`;
-    
-    execSync(cmd, { stdio: 'pipe' });
-    
-    // Leer el resultado en base64
-    const cms = fs.readFileSync(cmsPath);
-    return cms.toString('base64');
-    
-  } finally {
-    // Limpiar archivos temporales
-    try {
-      fs.unlinkSync(traPath);
-      fs.unlinkSync(certPath);
-      fs.unlinkSync(keyPath);
-      fs.unlinkSync(cmsPath);
-    } catch (e) {
-      // Ignorar errores de limpieza
-    }
-  }
+  // Agregar el certificado
+  p7.addCertificate(cert);
+  
+  // Agregar el firmante
+  p7.addSigner({
+    key: privateKey,
+    certificate: cert,
+    digestAlgorithm: forge.pki.oids.sha256,
+    authenticatedAttributes: [
+      {
+        type: forge.pki.oids.contentType,
+        value: forge.pki.oids.data,
+      },
+      {
+        type: forge.pki.oids.messageDigest,
+        // El valor se calcula automáticamente
+      },
+      {
+        type: forge.pki.oids.signingTime,
+        value: new Date().toISOString(),
+      },
+    ],
+  });
+  
+  // Firmar
+  p7.sign();
+  
+  // Convertir a DER y luego a base64
+  const asn1 = p7.toAsn1();
+  const der = forge.asn1.toDer(asn1);
+  const base64 = forge.util.encode64(der.getBytes());
+  
+  return base64;
 }
 
 /**
