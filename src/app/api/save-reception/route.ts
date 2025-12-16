@@ -269,7 +269,7 @@ export async function POST(request: NextRequest) {
               volumeM3,
               declaredValue,
             },
-            origin: 'Buenos Aires',
+            origin: data.origin || 'Buenos Aires',
             destination: 'Jujuy',
           }),
         });
@@ -289,7 +289,7 @@ export async function POST(request: NextRequest) {
                 entity_id: recipientId,
                 customer_name: data.recipientName,
                 customer_cuit: data.recipientCuit || null,
-                origin: 'Buenos Aires',
+                origin: data.origin || 'Buenos Aires',
                 destination: 'Jujuy',
                 weight_kg: weightKg,
                 volume_m3: volumeM3,
