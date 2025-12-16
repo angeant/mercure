@@ -147,6 +147,49 @@ export async function POST(request: NextRequest) {
 // 1 m³ = 300 kg (estándar en transporte terrestre)
 const VOLUMETRIC_FACTOR = 300;
 
+// Helper: Buscar tarifa directa por volumen
+async function buscarTarifaPorVolumen(volumeM3: number): Promise<{
+  encontrada: boolean;
+  tarifa?: any;
+  precio?: number;
+}> {
+  if (!volumeM3 || volumeM3 <= 0) {
+    return { encontrada: false };
+  }
+
+  // Buscar tarifas de tipo 'volume' o que tengan precio por m3
+  const { data: volumeTariff } = await supabase
+    .from('mercure_tariffs')
+    .select('*')
+    .eq('tariff_type', 'volume')
+    .order('weight_to_kg', { ascending: true }) // Usar weight_to_kg como volume_to_m3
+    .limit(20);
+
+  if (volumeTariff && volumeTariff.length > 0) {
+    // Buscar la tarifa que cubra el volumen
+    // Asumimos que weight_from_kg/weight_to_kg se usan como volume_from/volume_to para tarifas tipo 'volume'
+    const tariff = volumeTariff.find(t => {
+      const fromVol = parseFloat(t.weight_from_kg) || 0;
+      const toVol = parseFloat(t.weight_to_kg) || 999999;
+      return volumeM3 >= fromVol && volumeM3 <= toVol;
+    });
+
+    if (tariff) {
+      const precio = parseFloat(tariff.price) || 0;
+      console.log('[detect-pricing] Tarifa por VOLUMEN encontrada:', {
+        volumeM3,
+        tarifaId: tariff.id,
+        rangoVolumen: `${tariff.weight_from_kg}-${tariff.weight_to_kg} m³`,
+        precio
+      });
+      return { encontrada: true, tarifa: tariff, precio };
+    }
+  }
+
+  // También buscar si hay precio_per_m3 en alguna tarifa (futuro campo)
+  return { encontrada: false };
+}
+
 // Helper: Calcular peso a cobrar (el mayor entre real y volumétrico)
 function calcularPesoACobrar(cargo: { weightKg?: number; volumeM3?: number }): {
   pesoReal: number;
@@ -177,6 +220,7 @@ async function handlePathA(
   
   let price: number | null = null;
   let breakdown: Record<string, number> = {};
+  let usedVolumeTariff = false;
   
   // Buscar términos comerciales del cliente
   const { data: terms } = await supabase
@@ -190,36 +234,22 @@ async function handlePathA(
   const tariffModifier = parseFloat(terms?.tariff_modifier || '0'); // -20, -10, 0, +10, etc.
   const insuranceRate = parseFloat(terms?.insurance_rate || '0.008'); // 8 por mil
 
-  // Calcular peso a cobrar: el MAYOR entre peso real y peso volumétrico
-  const { pesoReal, pesoVolumetrico, pesoACobrar, usaVolumen } = calcularPesoACobrar(cargo);
-
-  if (pesoACobrar > 0) {
-    // Buscar tarifa por peso (redondear al múltiplo de 10 más cercano hacia arriba)
-    const weightBucket = Math.ceil(pesoACobrar / 10) * 10;
+  // PASO 1: Si hay volumen, buscar PRIMERO si existe tarifa directa por m³
+  if (cargo.volumeM3 && cargo.volumeM3 > 0) {
+    const tarifaVolumen = await buscarTarifaPorVolumen(cargo.volumeM3);
     
-    console.log('Buscando tarifa para peso:', weightBucket, 'kg');
-    
-    // Buscar tarifa que cubra ese peso (cualquier destino si no hay específica)
-    const { data: tariff, error: tariffError } = await supabase
-      .from('mercure_tariffs')
-      .select('*')
-      .gte('weight_to_kg', weightBucket)
-      .order('weight_to_kg', { ascending: true })
-      .limit(1)
-      .single();
-
-    console.log('Tarifa encontrada:', tariff, 'Error:', tariffError);
-
-    if (tariff) {
-      const basePrice = parseFloat(tariff.price) || 0;
+    if (tarifaVolumen.encontrada && tarifaVolumen.precio) {
+      usedVolumeTariff = true;
+      const basePrice = tarifaVolumen.precio;
       breakdown.flete_lista = basePrice;
-      breakdown.peso_cobrado = pesoACobrar;
+      breakdown.volumen_m3 = cargo.volumeM3;
+      breakdown.tipo_tarifa = 1; // 1 = volumen directo
 
       // Aplicar modificador (descuento/recargo)
       let fleteConModificador = basePrice;
       if (tariffModifier !== 0) {
         const modificadorMonto = basePrice * (tariffModifier / 100);
-        breakdown.descuento = modificadorMonto; // Será negativo si es descuento
+        breakdown.descuento = modificadorMonto;
         fleteConModificador = basePrice + modificadorMonto;
       }
       breakdown.flete_final = fleteConModificador;
@@ -229,39 +259,94 @@ async function handlePathA(
         breakdown.seguro = cargo.declaredValue * insuranceRate;
       }
 
-      // Total = flete final + seguro
       price = fleteConModificador + (breakdown.seguro || 0);
       
-      console.log('[detect-pricing] Path A - Precio calculado:', {
+      console.log('[detect-pricing] Path A - TARIFA POR VOLUMEN:', {
         cliente: client.legal_name,
-        pesoReal,
-        pesoVolumetrico,
-        pesoACobrar,
-        usaPeso: usaVolumen ? 'VOLUMETRICO' : 'REAL',
-        weightBucket,
-        tarifaEncontrada: tariff.weight_to_kg,
+        volumeM3: cargo.volumeM3,
         precioLista: basePrice,
         modificador: tariffModifier,
         precioFinal: price
       });
-    } else {
-      // No hay tarifa en la tabla, usar precio por kg por defecto
-      console.log('No se encontró tarifa, usando precio por defecto');
-      const precioPorKg = 500; // $500 por kg como fallback
-      const basePrice = pesoACobrar * precioPorKg;
-      breakdown.flete_lista = basePrice;
+    }
+  }
+
+  // PASO 2: Si no hay tarifa por volumen, usar método tradicional (peso o peso volumétrico)
+  if (!usedVolumeTariff) {
+    const { pesoReal, pesoVolumetrico, pesoACobrar, usaVolumen } = calcularPesoACobrar(cargo);
+
+    if (pesoACobrar > 0) {
+      // Buscar tarifa por peso (redondear al múltiplo de 10 más cercano hacia arriba)
+      const weightBucket = Math.ceil(pesoACobrar / 10) * 10;
       
-      if (tariffModifier !== 0) {
-        const modificadorMonto = basePrice * (tariffModifier / 100);
-        breakdown.descuento = modificadorMonto;
+      console.log('Buscando tarifa para peso:', weightBucket, 'kg');
+      
+      // Buscar tarifa que cubra ese peso (excluir tipo 'volume')
+      const { data: tariff, error: tariffError } = await supabase
+        .from('mercure_tariffs')
+        .select('*')
+        .neq('tariff_type', 'volume')
+        .gte('weight_to_kg', weightBucket)
+        .order('weight_to_kg', { ascending: true })
+        .limit(1)
+        .single();
+
+      console.log('Tarifa encontrada:', tariff, 'Error:', tariffError);
+
+      if (tariff) {
+        const basePrice = parseFloat(tariff.price) || 0;
+        breakdown.flete_lista = basePrice;
+        breakdown.peso_cobrado = pesoACobrar;
+        breakdown.tipo_tarifa = usaVolumen ? 2 : 0; // 2 = peso volumétrico, 0 = peso real
+
+        // Aplicar modificador (descuento/recargo)
+        let fleteConModificador = basePrice;
+        if (tariffModifier !== 0) {
+          const modificadorMonto = basePrice * (tariffModifier / 100);
+          breakdown.descuento = modificadorMonto;
+          fleteConModificador = basePrice + modificadorMonto;
+        }
+        breakdown.flete_final = fleteConModificador;
+
+        // Calcular seguro sobre valor declarado
+        if (cargo.declaredValue && insuranceRate > 0) {
+          breakdown.seguro = cargo.declaredValue * insuranceRate;
+        }
+
+        price = fleteConModificador + (breakdown.seguro || 0);
+        
+        console.log('[detect-pricing] Path A - Precio calculado:', {
+          cliente: client.legal_name,
+          pesoReal,
+          pesoVolumetrico,
+          pesoACobrar,
+          usaPeso: usaVolumen ? 'VOLUMETRICO' : 'REAL',
+          weightBucket,
+          tarifaEncontrada: tariff.weight_to_kg,
+          precioLista: basePrice,
+          modificador: tariffModifier,
+          precioFinal: price
+        });
+      } else {
+        // No hay tarifa en la tabla, usar precio por kg por defecto
+        console.log('No se encontró tarifa, usando precio por defecto');
+        const precioPorKg = 500; // $500 por kg como fallback
+        const basePrice = pesoACobrar * precioPorKg;
+        breakdown.flete_lista = basePrice;
+        breakdown.peso_cobrado = pesoACobrar;
+        
+        if (tariffModifier !== 0) {
+          const modificadorMonto = basePrice * (tariffModifier / 100);
+          breakdown.descuento = modificadorMonto;
+        }
+        breakdown.flete_final = basePrice + (breakdown.descuento || 0);
+        
+        if (cargo.declaredValue && insuranceRate > 0) {
+          breakdown.seguro = cargo.declaredValue * insuranceRate;
+        }
+        
+        price = breakdown.flete_final + (breakdown.seguro || 0);
       }
-      breakdown.flete_final = basePrice + (breakdown.descuento || 0);
-      
-      if (cargo.declaredValue && insuranceRate > 0) {
-        breakdown.seguro = cargo.declaredValue * insuranceRate;
-      }
-      
-      price = breakdown.flete_final + (breakdown.seguro || 0);
     }
   }
 
@@ -367,70 +452,106 @@ async function handlePathC(
   let price = null;
   let breakdown: Record<string, number> | undefined = undefined;
   let tariffId: number | undefined = undefined;
+  let usedVolumeTariff = false;
 
-  // Calcular peso a cobrar: el MAYOR entre peso real y peso volumétrico
-  const { pesoACobrar, usaVolumen } = calcularPesoACobrar(cargo);
-
-  if (pesoACobrar > 0) {
-    // Redondear al múltiplo de 10 más cercano hacia arriba
-    const weightBucket = Math.ceil(pesoACobrar / 10) * 10;
+  // PASO 1: Si hay volumen, buscar PRIMERO si existe tarifa directa por m³
+  if (cargo.volumeM3 && cargo.volumeM3 > 0) {
+    const tarifaVolumen = await buscarTarifaPorVolumen(cargo.volumeM3);
     
-    // Buscar tarifa por peso (igual que en Path A)
-    const { data: tariff, error: tariffError } = await supabase
-      .from('mercure_tariffs')
-      .select('*')
-      .gte('weight_to_kg', weightBucket)
-      .order('weight_to_kg', { ascending: true })
-      .limit(1)
-      .single();
-
-    console.log('[detect-pricing] Path C - Buscando tarifa para peso:', weightBucket, 'kg');
-    console.log('[detect-pricing] Tarifa encontrada:', tariff?.id, 'weight_to_kg:', tariff?.weight_to_kg, 'price:', tariff?.price);
-
-    if (tariff) {
-      tariffId = tariff.id;
-      const basePrice = parseFloat(tariff.price) || 0;
+    if (tarifaVolumen.encontrada && tarifaVolumen.precio) {
+      usedVolumeTariff = true;
+      tariffId = tarifaVolumen.tarifa?.id;
+      const basePrice = tarifaVolumen.precio;
       
       breakdown = {
         flete_lista: basePrice,
-        peso_cobrado: pesoACobrar,
+        volumen_m3: cargo.volumeM3,
+        tipo_tarifa: 1, // 1 = volumen directo
         flete_final: basePrice
       };
       
       // Calcular seguro sobre valor declarado (8 por mil por defecto)
       if (cargo.declaredValue && cargo.declaredValue > 0) {
-        const insuranceRate = 0.008;
-        breakdown.seguro = cargo.declaredValue * insuranceRate;
-      }
-      
-      price = basePrice + (breakdown.seguro || 0);
-      
-      console.log('[detect-pricing] Path C - Tarifa general:', {
-        pesoACobrar,
-        usaVolumen: usaVolumen ? 'VOLUMEN' : 'PESO REAL',
-        weightBucket,
-        tarifaEncontrada: tariff.weight_to_kg,
-        precioLista: basePrice,
-        seguro: breakdown.seguro || 0,
-        precioFinal: price
-      });
-    } else {
-      // Fallback: precio por kg si no hay tarifa
-      console.log('[detect-pricing] Path C - No hay tarifa, usando fallback $500/kg');
-      const precioPorKg = 500;
-      const basePrice = pesoACobrar * precioPorKg;
-      
-      breakdown = {
-        flete_lista: basePrice,
-        peso_cobrado: pesoACobrar,
-        flete_final: basePrice
-      };
-      
-      if (cargo.declaredValue && cargo.declaredValue > 0) {
         breakdown.seguro = cargo.declaredValue * 0.008;
       }
       
       price = basePrice + (breakdown.seguro || 0);
+      
+      console.log('[detect-pricing] Path C - TARIFA POR VOLUMEN:', {
+        volumeM3: cargo.volumeM3,
+        precioLista: basePrice,
+        precioFinal: price
+      });
+    }
+  }
+
+  // PASO 2: Si no hay tarifa por volumen, usar método tradicional
+  if (!usedVolumeTariff) {
+    const { pesoACobrar, usaVolumen } = calcularPesoACobrar(cargo);
+
+    if (pesoACobrar > 0) {
+      // Redondear al múltiplo de 10 más cercano hacia arriba
+      const weightBucket = Math.ceil(pesoACobrar / 10) * 10;
+      
+      // Buscar tarifa por peso (excluir tipo 'volume')
+      const { data: tariff, error: tariffError } = await supabase
+        .from('mercure_tariffs')
+        .select('*')
+        .neq('tariff_type', 'volume')
+        .gte('weight_to_kg', weightBucket)
+        .order('weight_to_kg', { ascending: true })
+        .limit(1)
+        .single();
+
+      console.log('[detect-pricing] Path C - Buscando tarifa para peso:', weightBucket, 'kg');
+      console.log('[detect-pricing] Tarifa encontrada:', tariff?.id, 'weight_to_kg:', tariff?.weight_to_kg, 'price:', tariff?.price);
+
+      if (tariff) {
+        tariffId = tariff.id;
+        const basePrice = parseFloat(tariff.price) || 0;
+        
+        breakdown = {
+          flete_lista: basePrice,
+          peso_cobrado: pesoACobrar,
+          tipo_tarifa: usaVolumen ? 2 : 0, // 2 = peso volumétrico, 0 = peso real
+          flete_final: basePrice
+        };
+        
+        // Calcular seguro sobre valor declarado (8 por mil por defecto)
+        if (cargo.declaredValue && cargo.declaredValue > 0) {
+          breakdown.seguro = cargo.declaredValue * 0.008;
+        }
+        
+        price = basePrice + (breakdown.seguro || 0);
+        
+        console.log('[detect-pricing] Path C - Tarifa general:', {
+          pesoACobrar,
+          usaVolumen: usaVolumen ? 'VOLUMEN' : 'PESO REAL',
+          weightBucket,
+          tarifaEncontrada: tariff.weight_to_kg,
+          precioLista: basePrice,
+          seguro: breakdown.seguro || 0,
+          precioFinal: price
+        });
+      } else {
+        // Fallback: precio por kg si no hay tarifa
+        console.log('[detect-pricing] Path C - No hay tarifa, usando fallback $500/kg');
+        const precioPorKg = 500;
+        const basePrice = pesoACobrar * precioPorKg;
+        
+        breakdown = {
+          flete_lista: basePrice,
+          peso_cobrado: pesoACobrar,
+          tipo_tarifa: usaVolumen ? 2 : 0,
+          flete_final: basePrice
+        };
+        
+        if (cargo.declaredValue && cargo.declaredValue > 0) {
+          breakdown.seguro = cargo.declaredValue * 0.008;
+        }
+        
+        price = basePrice + (breakdown.seguro || 0);
+      }
     }
   }
 

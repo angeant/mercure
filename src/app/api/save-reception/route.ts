@@ -25,6 +25,7 @@ interface ReceptionData {
   recipientEmail: string;
   recipientId: number | null;
   date: string;
+  origin: string; // Origen del envío
   packageQuantity: string;
   weightKg: string;
   volumeM3: string;

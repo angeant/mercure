@@ -41,6 +41,7 @@ interface FormData {
   // Remito
   deliveryNoteNumber: string;
   date: string;
+  origin: string; // Origen del envío
   // Carga (lo más importante)
   packageQuantity: string;
   weightKg: string;
@@ -64,6 +65,15 @@ interface FormData {
   loadDescription: string;
   observations: string;
 }
+
+const ORIGINS = [
+  { value: 'Buenos Aires', label: 'Buenos Aires' },
+  { value: 'Córdoba', label: 'Córdoba' },
+  { value: 'Mendoza', label: 'Mendoza' },
+  { value: 'Rosario', label: 'Rosario' },
+  { value: 'Tucumán', label: 'Tucumán' },
+  { value: 'Salta', label: 'Salta' },
+];
 
 // Campos que necesitan confirmación (no se pudieron extraer automáticamente)
 interface PendingFields {
@@ -165,6 +175,7 @@ function NuevaRecepcionContent() {
     // Remito
     deliveryNoteNumber: "",
     date: new Date().toISOString().split("T")[0],
+    origin: "Buenos Aires", // Origen por defecto
     // Carga
     packageQuantity: "",
     weightKg: "",
@@ -678,6 +689,19 @@ function NuevaRecepcionContent() {
                     onChange={handleInputChange}
                     className="h-8 text-sm"
                   />
+                </div>
+                <div>
+                  <Label className="text-xs mb-1 block">Origen</Label>
+                  <select
+                    name="origin"
+                    value={formData.origin}
+                    onChange={(e) => setFormData(prev => ({ ...prev, origin: e.target.value }))}
+                    className="w-full h-8 px-2 text-sm border border-neutral-200 rounded focus:border-neutral-400 focus:ring-0"
+                  >
+                    {ORIGINS.map(o => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <Label className="text-xs mb-1 block flex items-center gap-1">
