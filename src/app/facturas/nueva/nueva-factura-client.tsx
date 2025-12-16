@@ -24,7 +24,7 @@ interface Remito {
   };
 }
 
-type InvoiceType = 'A' | 'B';
+type InvoiceType = 'A' | 'B' | 'B_MONO' | 'B_EXENTO';
 type EmissionMode = 'manual' | 'automatic';
 
 const PUNTOS_VENTA = [
@@ -177,12 +177,19 @@ export function NuevaFacturaClient() {
     }
   };
 
+  // Convertir tipo de factura interno a tipo AFIP ('B_MONO' y 'B_EXENTO' son 'B' para AFIP)
+  const getAfipInvoiceType = (type: InvoiceType): 'A' | 'B' => {
+    if (type === 'B_MONO' || type === 'B_EXENTO') return 'B';
+    return type;
+  };
+
   const handleEmitir = async () => {
     setEmitting(true);
     setResult(null);
 
     try {
       let requestBody: any;
+      const afipInvoiceType = getAfipInvoiceType(invoiceType);
       
       if (mode === 'automatic') {
         if (!selectedCliente?.tax_id) {
@@ -196,7 +203,8 @@ export function NuevaFacturaClient() {
           cliente_id: selectedCliente.id,
           cliente_cuit: selectedCliente.tax_id,
           cliente_nombre: selectedCliente.legal_name,
-          invoice_type: invoiceType,
+          invoice_type: afipInvoiceType,
+          invoice_type_detail: invoiceType, // Para registro interno
           point_of_sale: pointOfSale,
           concepto: `Servicios de flete - ${selectedRemitos.length} remitos`,
           neto: netoAutomatico,
@@ -218,7 +226,8 @@ export function NuevaFacturaClient() {
           cliente_id: manualClienteId || undefined,
           cliente_cuit: manualCuit,
           cliente_nombre: manualNombre || 'Cliente',
-          invoice_type: invoiceType,
+          invoice_type: afipInvoiceType,
+          invoice_type_detail: invoiceType, // Para registro interno
           point_of_sale: pointOfSale,
           concepto: manualConcepto,
           neto: netoManual,
@@ -309,6 +318,8 @@ export function NuevaFacturaClient() {
           >
             <option value="A">Factura A (Resp. Inscripto)</option>
             <option value="B">Factura B (Consumidor Final)</option>
+            <option value="B_MONO">Factura B (Monotributista)</option>
+            <option value="B_EXENTO">Factura B (Exento)</option>
           </select>
         </div>
         <div>
@@ -641,7 +652,7 @@ export function NuevaFacturaClient() {
           ) : (
             <>
               <Send className="w-5 h-5" />
-              Emitir Factura {invoiceType}
+              Emitir Factura {getAfipInvoiceType(invoiceType)}
             </>
           )}
         </button>
