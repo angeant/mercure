@@ -8,7 +8,6 @@ import { Label } from "@/components/ui/label";
 import { ArrowLeft, Loader2, Search, MinusCircle, CheckCircle } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
 
 interface FacturaAsociable {
   id: number;
@@ -43,23 +42,18 @@ export default function NuevaNotaCreditoPage() {
   const [montoTotal, setMontoTotal] = useState<number>(0);
   const [ncTotal, setNcTotal] = useState(false); // NC por el total de la factura
 
-  // Buscar facturas
+  // Buscar facturas via API
   const searchFacturas = async () => {
     if (!searchQuery.trim()) return;
     
     setIsSearching(true);
     try {
-      const { data, error } = await supabase
-        .schema('mercure')
-        .from('invoices')
-        .select('*')
-        .or(`invoice_number.ilike.%${searchQuery}%,client_name.ilike.%${searchQuery}%,client_cuit.ilike.%${searchQuery}%`)
-        .is('voucher_type', null) // Solo facturas, no NC
-        .order('issue_date', { ascending: false })
-        .limit(10);
+      const response = await fetch(`/api/facturas/buscar?q=${encodeURIComponent(searchQuery)}`);
+      const data = await response.json();
       
-      if (error) throw error;
-      setFacturas(data || []);
+      if (data.facturas) {
+        setFacturas(data.facturas);
+      }
     } catch (err) {
       console.error("Error buscando facturas:", err);
     } finally {

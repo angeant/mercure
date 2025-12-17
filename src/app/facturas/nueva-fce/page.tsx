@@ -8,7 +8,6 @@ import { Label } from "@/components/ui/label";
 import { ArrowLeft, Loader2, Search, CreditCard, CheckCircle, Building2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
 
 interface Entity {
   id: number;
@@ -45,21 +44,18 @@ export default function NuevaFCEPage() {
   const [aliasEmisor, setAliasEmisor] = useState("");
   const [sca, setSca] = useState<'S' | 'N'>('S');
 
-  // Buscar clientes
+  // Buscar clientes via API
   const searchClients = async () => {
     if (!searchQuery.trim()) return;
     
     setIsSearching(true);
     try {
-      const { data, error } = await supabase
-        .schema('mercure')
-        .from('entities')
-        .select('id, legal_name, tax_id, entity_type')
-        .or(`legal_name.ilike.%${searchQuery}%,tax_id.ilike.%${searchQuery}%`)
-        .limit(10);
+      const response = await fetch(`/api/clientes/buscar?q=${encodeURIComponent(searchQuery)}`);
+      const data = await response.json();
       
-      if (error) throw error;
-      setClients(data || []);
+      if (data.clients) {
+        setClients(data.clients);
+      }
     } catch (err) {
       console.error("Error buscando clientes:", err);
     } finally {
