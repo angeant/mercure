@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/layout/navbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { supabase } from "@/lib/supabase";
 import { ArrowLeft, Truck, Save } from "lucide-react";
 import Link from "next/link";
 
@@ -47,39 +46,34 @@ export default function NuevoVehiculoPage() {
     setError(null);
 
     try {
-      const { data, error: insertError } = await supabase
-        .schema('mercure').from('vehicles')
-        .insert({
+      const response = await fetch('/api/vehiculos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           identifier: formData.identifier.toUpperCase(),
-          brand: formData.brand || null,
-          model: formData.model || null,
-          vehicle_type: formData.vehicle_type || null,
-          year: formData.year || null,
+          brand: formData.brand || undefined,
+          model: formData.model || undefined,
+          vehicle_type: formData.vehicle_type || undefined,
+          year: formData.year || undefined,
           tractor_license_plate: formData.tractor_license_plate.toUpperCase() || formData.identifier.toUpperCase(),
-          trailer_license_plate: formData.trailer_license_plate.toUpperCase() || null,
-          pallet_capacity: formData.pallet_capacity ? parseInt(formData.pallet_capacity) : null,
-          weight_capacity_kg: formData.weight_capacity_kg ? parseFloat(formData.weight_capacity_kg) : null,
-          purchase_date: formData.purchase_date || null,
-          purchase_km: formData.purchase_km ? parseInt(formData.purchase_km) : null,
+          trailer_license_plate: formData.trailer_license_plate.toUpperCase() || undefined,
+          pallet_capacity: formData.pallet_capacity ? parseInt(formData.pallet_capacity) : undefined,
+          weight_capacity_kg: formData.weight_capacity_kg ? parseFloat(formData.weight_capacity_kg) : undefined,
+          purchase_date: formData.purchase_date || undefined,
+          purchase_km: formData.purchase_km ? parseInt(formData.purchase_km) : undefined,
           purchase_condition: formData.purchase_condition,
           is_active: formData.is_active,
-          notes: formData.notes || null,
-        })
-        .select()
-        .single();
+          notes: formData.notes || undefined,
+        }),
+      });
 
-      if (insertError) throw insertError;
+      const data = await response.json();
 
-      if (data) {
-        await supabase.schema('mercure').from('vehicle_events').insert({
-          vehicle_id: data.id,
-          event_type: 'compra',
-          event_date: formData.purchase_date || new Date().toISOString().split('T')[0],
-          km_at_event: formData.purchase_km ? parseInt(formData.purchase_km) : 0,
-          description: "Adquisición - " + (formData.purchase_condition === 'new' ? '0km' : 'Usado'),
-        });
+      if (!response.ok) {
+        throw new Error(data.error || 'Error al crear vehículo');
       }
-      router.push("/vehiculos/" + data?.id);
+
+      router.push("/vehiculos/" + data.vehicle?.id);
     } catch (err) {
       console.error(err);
       setError(err instanceof Error ? err.message : 'Error al crear vehículo');
