@@ -102,31 +102,29 @@ export default async function FacturasPage() {
           </div>
           <div className="border border-neutral-200 rounded overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-sm min-w-[800px]">
+              <table className="w-full text-sm min-w-[700px]">
                 <thead>
                   <tr className="bg-neutral-50 border-b border-neutral-200">
                     <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Tipo</th>
                     <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Número</th>
                     <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Cliente</th>
                     <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Fecha</th>
-                    <th className="px-3 py-2 text-right text-xs font-medium text-neutral-500 uppercase">Neto</th>
-                    <th className="px-3 py-2 text-right text-xs font-medium text-neutral-500 uppercase">IVA</th>
                     <th className="px-3 py-2 text-right text-xs font-medium text-neutral-500 uppercase">Total</th>
+                    <th className="px-3 py-2 text-center text-xs font-medium text-neutral-500 uppercase">Cobro</th>
                     <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">CAE</th>
-                    <th className="px-3 py-2 text-center text-xs font-medium text-neutral-500 uppercase">Modo</th>
                     <th className="px-3 py-2 text-center text-xs font-medium text-neutral-500 uppercase">Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
                   {error ? (
                     <tr>
-                      <td colSpan={10} className="px-3 py-8 text-center text-red-500">
+                      <td colSpan={8} className="px-3 py-8 text-center text-red-500">
                         Error al cargar facturas: {error.message}
                       </td>
                     </tr>
                   ) : !facturas || facturas.length === 0 ? (
                     <tr>
-                      <td colSpan={10} className="px-3 py-8 text-center text-neutral-400">
+                      <td colSpan={8} className="px-3 py-8 text-center text-neutral-400">
                         No hay facturas emitidas
                       </td>
                     </tr>
@@ -134,6 +132,8 @@ export default async function FacturasPage() {
                     facturas.map((factura) => {
                       const voucherDisplay = getVoucherDisplay(factura.voucher_type, factura.invoice_type);
                       const isNC = factura.voucher_type?.startsWith('NC');
+                      const isND = factura.voucher_type?.startsWith('ND');
+                      const showPaymentStatus = !isNC && !isND;
                       return (
                       <tr key={factura.id} className="border-b border-neutral-100 hover:bg-neutral-50">
                         <td className="px-3 py-2">
@@ -150,26 +150,34 @@ export default async function FacturasPage() {
                         <td className="px-3 py-2 text-neutral-600">
                           {formatDate(factura.issue_date)}
                         </td>
-                        <td className="px-3 py-2 text-right text-neutral-600">
-                          {formatCurrency(Number(factura.neto))}
-                        </td>
-                        <td className="px-3 py-2 text-right text-neutral-600">
-                          {formatCurrency(Number(factura.iva))}
-                        </td>
-                        <td className={`px-3 py-2 text-right font-medium ${isNC ? 'text-red-600' : 'text-neutral-900'}`}>
+                        <td className={`px-3 py-2 text-right font-medium font-mono ${isNC ? 'text-red-600' : 'text-neutral-900'}`}>
                           {isNC ? '-' : ''}{formatCurrency(Number(factura.total))}
+                        </td>
+                        <td className="px-3 py-2 text-center">
+                          {showPaymentStatus ? (
+                            factura.payment_status === 'paid' ? (
+                              <Link 
+                                href="/cobranzas" 
+                                className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded bg-green-100 text-green-700 hover:bg-green-200"
+                                title={`Recibo #${factura.receipt_id}`}
+                              >
+                                ✓ Pagada
+                              </Link>
+                            ) : factura.payment_status === 'partial' ? (
+                              <span className="text-xs px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">
+                                Parcial
+                              </span>
+                            ) : (
+                              <span className="text-xs px-1.5 py-0.5 rounded bg-red-50 text-red-600">
+                                Pendiente
+                              </span>
+                            )
+                          ) : (
+                            <span className="text-xs text-neutral-400">-</span>
+                          )}
                         </td>
                         <td className="px-3 py-2 font-mono text-xs text-neutral-500">
                           {factura.cae}
-                        </td>
-                        <td className="px-3 py-2 text-center">
-                          <span className={`text-xs px-1.5 py-0.5 rounded ${
-                            factura.emission_mode === 'automatic' 
-                              ? 'bg-blue-50 text-blue-700' 
-                              : 'bg-neutral-100 text-neutral-600'
-                          }`}>
-                            {factura.emission_mode === 'automatic' ? 'Auto' : 'Manual'}
-                          </span>
                         </td>
                         <td className="px-3 py-2 text-center">
                           <DownloadButton

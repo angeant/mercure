@@ -1,9 +1,10 @@
 "use client";
 
-import { Printer, FileText, Truck } from "lucide-react";
+import { Printer, FileText, Truck, Receipt } from "lucide-react";
 import { RemitoDocument } from "@/components/documents/remito";
 import { RemitoDocumentV2 } from "@/components/documents/remito-v2";
 import { GuiaDocument } from "@/components/documents/guia";
+import { ReciboDocument } from "@/components/documents/recibo";
 import { useEffect, useState } from "react";
 
 interface RemitoPreviewProps {
@@ -109,11 +110,34 @@ const mockGuia = {
   notes: "Entregar antes de las 14:00hs. Llamar al llegar.",
 };
 
+// Mock de recibo para preview
+const mockRecibo = {
+  receiptNumber: "R-00001622",
+  receiptDate: "2025-11-05",
+  clientName: "STENFAR S.A. INDUSTRIAL COMERCIAL IMP. Y EXP.",
+  clientCuit: "30516336885",
+  clientDomicilio: "Jujuy",
+  clientCbu: "",
+  currency: "ARS" as const,
+  exchangeRate: 1.00,
+  paymentItems: [
+    { cuenta: "Banco Galicia Cta Cte", descripcion: "Transferencia CBU", importe: 7799230.10 },
+    { cuenta: "Retención IIBB Sufrida Buenos Aires", descripcion: "Retención 05/11/2025 Nro. 46494", importe: 85595.45 },
+    { cuenta: "Retención Ganancias Sufrida", descripcion: "Retención 05/11/2025 Nro. 18543", importe: 16292.74 },
+    { cuenta: "Retenciones SUSS Sufridas", descripcion: "Retención 05/11/2025 Nro. 15490", importe: 65842.65 },
+  ],
+  cancelledInvoices: [
+    { date: "2025-10-07", invoiceNumber: "A-0005-00002314", amount: 7966960.94 },
+  ],
+  observations: "",
+  total: 7966960.94,
+};
+
 export function RemitoPreview({ shipment }: RemitoPreviewProps) {
   const [mounted, setMounted] = useState(false);
   const [version, setVersion] = useState<'v1' | 'v2'>('v2');
   const [testCtaCte, setTestCtaCte] = useState(false);
-  const [docType, setDocType] = useState<'remito' | 'guia'>('remito');
+  const [docType, setDocType] = useState<'remito' | 'guia' | 'recibo'>('remito');
 
   useEffect(() => {
     setMounted(true);
@@ -124,6 +148,8 @@ export function RemitoPreview({ shipment }: RemitoPreviewProps) {
     const originalTitle = document.title;
     if (docType === 'guia') {
       document.title = `Hoja de Ruta - ${mockGuia.guia_number}`;
+    } else if (docType === 'recibo') {
+      document.title = `Recibo - ${mockRecibo.receiptNumber}`;
     } else {
       const remitoNumber = `R0005-${String(shipment.id).padStart(8, '0')}`;
       document.title = `Remito - ${remitoNumber}`;
@@ -207,6 +233,17 @@ export function RemitoPreview({ shipment }: RemitoPreviewProps) {
                 <Truck className="w-3.5 h-3.5" />
                 Hoja de Ruta
               </button>
+              <button
+                onClick={() => setDocType('recibo')}
+                className={`px-2 sm:px-3 py-1.5 text-xs font-medium rounded transition-colors flex items-center gap-1.5 ${
+                  docType === 'recibo' 
+                    ? 'bg-white text-neutral-900 shadow-sm' 
+                    : 'text-neutral-500 hover:text-neutral-700'
+                }`}
+              >
+                <Receipt className="w-3.5 h-3.5" />
+                Recibo
+              </button>
             </div>
 
             {/* Opciones de Remito */}
@@ -266,8 +303,10 @@ export function RemitoPreview({ shipment }: RemitoPreviewProps) {
             ) : (
               <RemitoDocumentV2 shipment={testShipment} />
             )
-          ) : (
+          ) : docType === 'guia' ? (
             <GuiaDocument guia={mockGuia} />
+          ) : (
+            <ReciboDocument receipt={mockRecibo} />
           )}
         </div>
       </div>

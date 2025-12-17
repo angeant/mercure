@@ -32,39 +32,75 @@ interface ShipmentWithRelations {
   } | null;
 }
 
-// Helper para normalizar relaciones que pueden venir como array o objeto
-function normalizeRelation<T>(rel: T | T[] | null): T | null {
-  if (!rel) return null;
-  if (Array.isArray(rel)) return rel[0] || null;
-  return rel;
-}
-
 async function getShipments(): Promise<ShipmentWithRelations[]> {
   // Obtener envíos de los últimos 30 días que no estén cancelados
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-  const { data } = await supabaseAdmin!
-    .schema('mercure').from('shipments')
-    .select(`
-      id, delivery_note_number, status, package_quantity, weight_kg, volume_m3,
-      declared_value, recipient_address, created_at, updated_at, trip_id, quotation_id,
-      sender:entities!sender_id(legal_name),
-      recipient:entities!recipient_id(legal_name),
-      trip:trips!trip_id(id, origin, destination, status, departure_time),
-      quotation:quotations!quotation_id(total_price, base_price, insurance_cost)
-    `)
+  // Paso 1: Obtener shipments sin relaciones
+  const { data: shipments, error: shipmentError } = await supabaseAdmin!
+    .schema('mercure')
+    .from('shipments')
+    .select('id, delivery_note_number, status, package_quantity, weight_kg, volume_m3, declared_value, recipient_address, created_at, updated_at, trip_id, quotation_id, sender_id, recipient_id')
     .neq('status', 'cancelled')
     .gte('created_at', thirtyDaysAgo.toISOString())
     .order('created_at', { ascending: false });
 
-  // Normalizar relaciones que pueden venir como arrays
-  return (data || []).map(item => ({
-    ...item,
-    sender: normalizeRelation(item.sender),
-    recipient: normalizeRelation(item.recipient),
-    trip: normalizeRelation(item.trip),
-    quotation: normalizeRelation(item.quotation),
+  if (shipmentError) {
+    console.error('Error fetching shipments for Kanban:', shipmentError);
+    return [];
+  }
+
+  if (!shipments || shipments.length === 0) {
+    console.log('[Kanban] No shipments found');
+    return [];
+  }
+
+  console.log(`[Kanban] Loaded ${shipments.length} shipments`);
+
+  // Paso 2: Obtener IDs únicos para relaciones
+  const senderIds = [...new Set(shipments.map(s => s.sender_id).filter(Boolean))];
+  const recipientIds = [...new Set(shipments.map(s => s.recipient_id).filter(Boolean))];
+  const allEntityIds = [...new Set([...senderIds, ...recipientIds])];
+  const tripIds = [...new Set(shipments.map(s => s.trip_id).filter(Boolean))];
+  const quotationIds = [...new Set(shipments.map(s => s.quotation_id).filter(Boolean))];
+
+  // Paso 3: Obtener entidades, trips y quotations en paralelo
+  const [entitiesRes, tripsRes, quotationsRes] = await Promise.all([
+    allEntityIds.length > 0 
+      ? supabaseAdmin!.schema('mercure').from('entities').select('id, legal_name').in('id', allEntityIds)
+      : { data: [] },
+    tripIds.length > 0 
+      ? supabaseAdmin!.schema('mercure').from('trips').select('id, origin, destination, status, departure_time').in('id', tripIds)
+      : { data: [] },
+    quotationIds.length > 0 
+      ? supabaseAdmin!.schema('mercure').from('quotations').select('id, total_price, base_price, insurance_cost').in('id', quotationIds)
+      : { data: [] },
+  ]);
+
+  // Crear mapas para lookup rápido
+  const entitiesMap = new Map((entitiesRes.data || []).map(e => [e.id, e]));
+  const tripsMap = new Map((tripsRes.data || []).map(t => [t.id, t]));
+  const quotationsMap = new Map((quotationsRes.data || []).map(q => [q.id, q]));
+
+  // Paso 4: Combinar datos
+  return shipments.map(s => ({
+    id: s.id,
+    delivery_note_number: s.delivery_note_number,
+    status: s.status,
+    package_quantity: s.package_quantity,
+    weight_kg: s.weight_kg,
+    volume_m3: s.volume_m3,
+    declared_value: s.declared_value,
+    recipient_address: s.recipient_address,
+    created_at: s.created_at,
+    updated_at: s.updated_at,
+    trip_id: s.trip_id,
+    quotation_id: s.quotation_id,
+    sender: s.sender_id ? entitiesMap.get(s.sender_id) || null : null,
+    recipient: s.recipient_id ? entitiesMap.get(s.recipient_id) || null : null,
+    trip: s.trip_id ? tripsMap.get(s.trip_id) || null : null,
+    quotation: s.quotation_id ? quotationsMap.get(s.quotation_id) || null : null,
   })) as ShipmentWithRelations[];
 }
 

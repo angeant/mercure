@@ -1,43 +1,69 @@
 "use client";
 
 import { useKaliaImprovements } from "@/lib/contexts/kalia-improvements-context";
-import { MessageSquarePlus, X } from "lucide-react";
+import { X, MessageCircle } from "lucide-react";
+import { useState, useEffect } from "react";
+
+const ROTATING_TEXTS = [
+  "¿Algo no funciona?",
+  "¿Tenés una sugerencia?",
+  "Escribime directo",
+];
 
 export function ChatButton() {
   const { isOpen, toggleChat, messages, ticketCreated } = useKaliaImprovements();
+  const [textIndex, setTextIndex] = useState(0);
+  const [isAnimating, setIsAnimating] = useState(false);
+
+  // Rotate text every 4 seconds
+  useEffect(() => {
+    if (isOpen) return;
+    
+    const interval = setInterval(() => {
+      setIsAnimating(true);
+      setTimeout(() => {
+        setTextIndex((prev) => (prev + 1) % ROTATING_TEXTS.length);
+        setIsAnimating(false);
+      }, 200);
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, [isOpen]);
 
   // Show badge if there's a conversation in progress
   const showBadge = !isOpen && messages.length > 0 && !ticketCreated;
 
+  if (isOpen) {
+    return null; // El X está en el modal
+  }
+
   return (
     <button
       onClick={toggleChat}
-      className={`
+      className="
         fixed bottom-4 right-4 z-50
-        w-12 h-12 rounded-full
-        flex items-center justify-center
-        transition-all duration-200
+        flex items-center gap-2
+        px-4 py-2.5
+        bg-neutral-900 hover:bg-neutral-800
+        text-white text-sm
+        rounded-full
         shadow-lg hover:shadow-xl
-        ${isOpen 
-          ? "bg-neutral-700 hover:bg-neutral-600" 
-          : "bg-neutral-900 hover:bg-neutral-800"
-        }
-      `}
-      aria-label={isOpen ? "Cerrar chat de feedback" : "Abrir chat de feedback"}
+        transition-all duration-200
+        border border-neutral-700
+      "
+      aria-label="Abrir chat de feedback"
     >
-      {isOpen ? (
-        <X className="w-5 h-5 text-white" />
-      ) : (
-        <>
-          <MessageSquarePlus className="w-5 h-5 text-white" />
-          {showBadge && (
-            <span className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 rounded-full flex items-center justify-center">
-              <span className="text-[10px] text-white font-medium">
-                {messages.length > 9 ? "9+" : messages.length}
-              </span>
-            </span>
-          )}
-        </>
+      <MessageCircle className="w-4 h-4 flex-shrink-0" />
+      <span 
+        className={`
+          transition-all duration-200 
+          ${isAnimating ? 'opacity-0 translate-y-1' : 'opacity-100 translate-y-0'}
+        `}
+      >
+        {ROTATING_TEXTS[textIndex]}
+      </span>
+      {showBadge && (
+        <span className="w-2 h-2 bg-orange-500 rounded-full animate-pulse" />
       )}
     </button>
   );
