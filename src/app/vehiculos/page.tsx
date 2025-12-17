@@ -33,20 +33,39 @@ interface VehicleEvent {
 }
 
 async function getVehicles(): Promise<Vehicle[]> {
-  const { data } = await supabaseAdmin!
+  if (!supabaseAdmin) {
+    console.error('supabaseAdmin is null - check SUPABASE_SERVICE_ROLE_KEY');
+    return [];
+  }
+  
+  const { data, error } = await supabaseAdmin
     .schema('mercure')
     .from('vehicles')
     .select('*')
     .order('identifier', { ascending: true });
+  
+  if (error) {
+    console.error('Error fetching vehicles:', error);
+    return [];
+  }
+  
   return (data as Vehicle[]) || [];
 }
 
 async function getVehicleEvents(): Promise<VehicleEvent[]> {
-  const { data } = await supabaseAdmin!
+  if (!supabaseAdmin) return [];
+  
+  const { data, error } = await supabaseAdmin
     .schema('mercure')
     .from('vehicle_events')
     .select('id, vehicle_id, event_type, event_date, km_at_event, next_date, next_km')
     .order('event_date', { ascending: false });
+  
+  if (error) {
+    console.error('Error fetching vehicle events:', error);
+    return [];
+  }
+  
   return (data as VehicleEvent[]) || [];
 }
 
