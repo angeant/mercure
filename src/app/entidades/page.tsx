@@ -25,21 +25,36 @@ interface EntityWithTerms {
 async function getEntities(): Promise<EntityWithTerms[]> {
   if (!supabaseAdmin) return [];
   
-  const { data } = await supabaseAdmin
+  // Obtener entidades sin relación problemática
+  const { data: entities, error } = await supabaseAdmin
     .schema('mercure')
     .from('entities')
-    .select(`
-      id, legal_name, tax_id, entity_type, payment_terms, email, phone, address,
-      commercial_terms:client_commercial_terms(tariff_modifier, insurance_rate, credit_days)
-    `)
+    .select('id, legal_name, tax_id, entity_type, payment_terms, email, phone, address')
     .order('legal_name', { ascending: true });
   
-  // Normalizar commercial_terms (puede venir como array)
-  return (data || []).map(e => ({
+  if (error) {
+    console.error("Error fetching entities:", error);
+    return [];
+  }
+
+  if (!entities || entities.length === 0) {
+    return [];
+  }
+
+  // Obtener términos comerciales por separado
+  const entityIds = entities.map(e => e.id);
+  const { data: terms } = await supabaseAdmin
+    .schema('mercure')
+    .from('client_commercial_terms')
+    .select('entity_id, tariff_modifier, insurance_rate, credit_days')
+    .in('entity_id', entityIds)
+    .eq('is_active', true);
+
+  const termsMap = new Map((terms || []).map(t => [t.entity_id, t]));
+
+  return entities.map(e => ({
     ...e,
-    commercial_terms: Array.isArray(e.commercial_terms) 
-      ? e.commercial_terms[0] || null 
-      : e.commercial_terms
+    commercial_terms: termsMap.get(e.id) || null,
   }));
 }
 

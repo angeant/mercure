@@ -2,7 +2,7 @@ import { requireAuth } from "@/lib/auth";
 import { Navbar } from "@/components/layout/navbar";
 import { supabaseAdmin } from "@/lib/supabase";
 import Link from "next/link";
-import { FileText } from "lucide-react";
+import { FileText, Plus, MinusCircle } from "lucide-react";
 import { DownloadButton } from "./download-button";
 
 function formatCurrency(value: number): string {
@@ -22,15 +22,37 @@ function formatDate(dateStr: string): string {
   });
 }
 
+// Mapeo de tipos de comprobante a labels
+const VOUCHER_LABELS: Record<string, { label: string; short: string; color: string }> = {
+  'A': { label: 'Factura A', short: 'FA', color: 'bg-blue-100 text-blue-700' },
+  'B': { label: 'Factura B', short: 'FB', color: 'bg-blue-100 text-blue-700' },
+  'C': { label: 'Factura C', short: 'FC', color: 'bg-blue-100 text-blue-700' },
+  'NC_A': { label: 'Nota de Crédito A', short: 'NC A', color: 'bg-red-100 text-red-700' },
+  'NC_B': { label: 'Nota de Crédito B', short: 'NC B', color: 'bg-red-100 text-red-700' },
+  'NC_C': { label: 'Nota de Crédito C', short: 'NC C', color: 'bg-red-100 text-red-700' },
+  'ND_A': { label: 'Nota de Débito A', short: 'ND A', color: 'bg-amber-100 text-amber-700' },
+  'ND_B': { label: 'Nota de Débito B', short: 'ND B', color: 'bg-amber-100 text-amber-700' },
+  'ND_C': { label: 'Nota de Débito C', short: 'ND C', color: 'bg-amber-100 text-amber-700' },
+};
+
+function getVoucherDisplay(voucherType?: string, invoiceType?: string) {
+  const type = voucherType || invoiceType || 'A';
+  return VOUCHER_LABELS[type] || VOUCHER_LABELS[invoiceType || 'A'] || { label: type, short: type, color: 'bg-neutral-100 text-neutral-600' };
+}
+
 export default async function FacturasPage() {
   await requireAuth("/facturas");
 
-  // Obtener facturas
+  // Obtener comprobantes (facturas, NC, ND)
   const { data: facturas, error } = await supabaseAdmin!
     .schema('mercure')
     .from('invoices')
     .select('*')
     .order('issue_date', { ascending: false });
+
+  // Contar por tipo
+  const facturaCount = facturas?.filter(f => !f.voucher_type || !f.voucher_type.startsWith('NC')).length || 0;
+  const ncCount = facturas?.filter(f => f.voucher_type?.startsWith('NC')).length || 0;
 
   return (
     <div className="min-h-screen bg-white">
@@ -38,14 +60,28 @@ export default async function FacturasPage() {
       <main className="pt-12">
         <div className="px-3 sm:px-4 py-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-neutral-200 pb-3 mb-4 gap-2">
-            <h1 className="text-lg font-medium text-neutral-900">Facturas</h1>
-            <Link 
-              href="/facturas/nueva"
-              className="h-8 px-3 text-sm bg-orange-500 hover:bg-orange-600 text-white rounded w-full sm:w-auto flex items-center justify-center gap-2"
-            >
-              <FileText className="w-4 h-4" />
-              Nueva Factura
-            </Link>
+            <div>
+              <h1 className="text-lg font-medium text-neutral-900">Comprobantes</h1>
+              <p className="text-xs text-neutral-500">
+                {facturaCount} factura{facturaCount !== 1 ? 's' : ''} · {ncCount} nota{ncCount !== 1 ? 's' : ''} de crédito
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Link 
+                href="/facturas/nueva-nc"
+                className="h-8 px-3 text-sm border border-neutral-200 hover:bg-neutral-50 rounded flex items-center justify-center gap-2"
+              >
+                <MinusCircle className="w-4 h-4" />
+                Nota de Crédito
+              </Link>
+              <Link 
+                href="/facturas/nueva"
+                className="h-8 px-3 text-sm bg-orange-500 hover:bg-orange-600 text-white rounded flex items-center justify-center gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                Nueva Factura
+              </Link>
+            </div>
           </div>
           <div className="border border-neutral-200 rounded overflow-hidden">
             <div className="overflow-x-auto">
@@ -78,11 +114,14 @@ export default async function FacturasPage() {
                       </td>
                     </tr>
                   ) : (
-                    facturas.map((factura) => (
+                    facturas.map((factura) => {
+                      const voucherDisplay = getVoucherDisplay(factura.voucher_type, factura.invoice_type);
+                      const isNC = factura.voucher_type?.startsWith('NC');
+                      return (
                       <tr key={factura.id} className="border-b border-neutral-100 hover:bg-neutral-50">
                         <td className="px-3 py-2">
-                          <span className="inline-flex items-center justify-center w-6 h-6 text-xs font-bold bg-blue-100 text-blue-700 rounded">
-                            {factura.invoice_type}
+                          <span className={`inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-medium rounded ${voucherDisplay.color}`}>
+                            {voucherDisplay.short}
                           </span>
                         </td>
                         <td className="px-3 py-2 font-mono text-neutral-900">
@@ -100,8 +139,8 @@ export default async function FacturasPage() {
                         <td className="px-3 py-2 text-right text-neutral-600">
                           {formatCurrency(Number(factura.iva))}
                         </td>
-                        <td className="px-3 py-2 text-right font-medium text-neutral-900">
-                          {formatCurrency(Number(factura.total))}
+                        <td className={`px-3 py-2 text-right font-medium ${isNC ? 'text-red-600' : 'text-neutral-900'}`}>
+                          {isNC ? '-' : ''}{formatCurrency(Number(factura.total))}
                         </td>
                         <td className="px-3 py-2 font-mono text-xs text-neutral-500">
                           {factura.cae}
@@ -128,8 +167,8 @@ export default async function FacturasPage() {
                             invoiceType={factura.invoice_type}
                           />
                         </td>
-                      </tr>
-                    ))
+                        </tr>
+                    );})
                   )}
                 </tbody>
               </table>
