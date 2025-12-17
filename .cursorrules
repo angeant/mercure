@@ -111,7 +111,7 @@ text-xs px-1.5 py-0.5 rounded font-medium
 ## Base de Datos
 - TODAS las tablas de Mercure están en el schema `mercure`
 - NO usar schema `public` para tablas de Mercure
-- Al usar el cliente: `supabase.schema('mercure').from('shipments')`
+- Al usar el cliente: `supabaseAdmin.schema('mercure').from('shipments')`
 - SIEMPRE usar `.schema('mercure')` antes de `.from()`
 - Nombres de tablas SIN prefijo `mercure_`:
   - entities, shipments, trips, vehicles, vehicle_events
@@ -121,15 +121,92 @@ text-xs px-1.5 py-0.5 rounded font-medium
   - invoices, afip_config, email_config
   - user_roles, user_permissions, audit_logs, profiles
 
+## Arquitectura: RLS y Clientes Supabase
+
+### REGLA CRÍTICA: SIEMPRE usar supabaseAdmin
+
+Hay RLS (Row Level Security) activo en TODAS las tablas. El cliente público `supabase` 
+NO tiene permisos para leer ni escribir datos. 
+
+**SIEMPRE usar `supabaseAdmin`** que bypasea RLS con la service role key.
+
+### Patrón para Server Components (page.tsx)
+```typescript
+// ✅ CORRECTO - Server Component con supabaseAdmin
+import { supabaseAdmin } from "@/lib/supabase";
+
+async function getData() {
+  const { data } = await supabaseAdmin!
+    .schema('mercure')
+    .from('entities')
+    .select('*');
+  return data || [];
+}
+
+export default async function Page() {
+  const data = await getData();
+  return <ClientComponent initialData={data} />;
+}
+```
+
+### Patrón para Client Components ("use client")
+Los componentes cliente NO pueden usar supabaseAdmin directamente.
+Hay 2 opciones:
+
+**Opción 1: Pasar datos desde Server Component (preferida)**
+```typescript
+// page.tsx (Server)
+const data = await getData();
+return <ClientComponent initialData={data} />;
+
+// client-component.tsx
+export function ClientComponent({ initialData }: { initialData: Data[] }) {
+  const [data] = useState(initialData);
+  // ...
+}
+```
+
+**Opción 2: Crear API Route**
+```typescript
+// /api/mi-endpoint/route.ts
+import { supabaseAdmin } from "@/lib/supabase";
+
+export async function GET() {
+  const { data } = await supabaseAdmin!.schema('mercure').from('tabla').select('*');
+  return NextResponse.json({ data });
+}
+
+// client-component.tsx
+const response = await fetch('/api/mi-endpoint');
+const { data } = await response.json();
+```
+
+### ❌ NUNCA hacer esto en componentes cliente:
+```typescript
+"use client";
+import { supabase } from "@/lib/supabase"; // Cliente público
+
+// ❌ ESTO NO VA A FUNCIONAR - RLS bloquea todo
+const { data } = await supabase.schema('mercure').from('entities').select('*');
+```
+
+### Resumen
+| Contexto | Cliente a usar | Import |
+|----------|----------------|--------|
+| Server Component | `supabaseAdmin!` | `import { supabaseAdmin } from "@/lib/supabase"` |
+| API Route | `supabaseAdmin!` | `import { supabaseAdmin } from "@/lib/supabase"` |
+| Server Action | `supabaseAdmin!` | `import { supabaseAdmin } from "@/lib/supabase"` |
+| Client Component | NO usar directamente | Pasar props o usar API |
+
 ### Ejemplo de uso correcto:
 ```typescript
-// ✅ Correcto
-const { data } = await supabase
+// ✅ Correcto - Server Component o API Route
+const { data } = await supabaseAdmin!
   .schema('mercure')
   .from('shipments')
-  .select('*, sender:entities!sender_id(legal_name)')
+  .select('*')
 
-// ❌ Incorrecto (NO usar)
+// ❌ Incorrecto (NO usar en ningún lado)
 const { data } = await supabase
   .from('mercure_shipments')
 ```
