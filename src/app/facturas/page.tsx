@@ -2,7 +2,7 @@ import { requireAuth } from "@/lib/auth";
 import { Navbar } from "@/components/layout/navbar";
 import { supabaseAdmin } from "@/lib/supabase";
 import Link from "next/link";
-import { FileText, Plus, MinusCircle } from "lucide-react";
+import { FileText, Plus, MinusCircle, CreditCard } from "lucide-react";
 import { DownloadButton } from "./download-button";
 
 function formatCurrency(value: number): string {
@@ -33,6 +33,15 @@ const VOUCHER_LABELS: Record<string, { label: string; short: string; color: stri
   'ND_A': { label: 'Nota de Débito A', short: 'ND A', color: 'bg-amber-100 text-amber-700' },
   'ND_B': { label: 'Nota de Débito B', short: 'ND B', color: 'bg-amber-100 text-amber-700' },
   'ND_C': { label: 'Nota de Débito C', short: 'ND C', color: 'bg-amber-100 text-amber-700' },
+  'FCE_A': { label: 'FCE MiPyME A', short: 'FCE A', color: 'bg-green-100 text-green-700' },
+  'FCE_B': { label: 'FCE MiPyME B', short: 'FCE B', color: 'bg-green-100 text-green-700' },
+  'FCE_C': { label: 'FCE MiPyME C', short: 'FCE C', color: 'bg-green-100 text-green-700' },
+  'NC_FCE_A': { label: 'NC FCE A', short: 'NC FCE', color: 'bg-rose-100 text-rose-700' },
+  'NC_FCE_B': { label: 'NC FCE B', short: 'NC FCE', color: 'bg-rose-100 text-rose-700' },
+  'NC_FCE_C': { label: 'NC FCE C', short: 'NC FCE', color: 'bg-rose-100 text-rose-700' },
+  'ND_FCE_A': { label: 'ND FCE A', short: 'ND FCE', color: 'bg-orange-100 text-orange-700' },
+  'ND_FCE_B': { label: 'ND FCE B', short: 'ND FCE', color: 'bg-orange-100 text-orange-700' },
+  'ND_FCE_C': { label: 'ND FCE C', short: 'ND FCE', color: 'bg-orange-100 text-orange-700' },
 };
 
 function getVoucherDisplay(voucherType?: string, invoiceType?: string) {
@@ -51,8 +60,9 @@ export default async function FacturasPage() {
     .order('issue_date', { ascending: false });
 
   // Contar por tipo
-  const facturaCount = facturas?.filter(f => !f.voucher_type || !f.voucher_type.startsWith('NC')).length || 0;
+  const facturaCount = facturas?.filter(f => !f.voucher_type || (!f.voucher_type.startsWith('NC') && !f.voucher_type.startsWith('FCE'))).length || 0;
   const ncCount = facturas?.filter(f => f.voucher_type?.startsWith('NC')).length || 0;
+  const fceCount = facturas?.filter(f => f.voucher_type?.startsWith('FCE')).length || 0;
 
   return (
     <div className="min-h-screen bg-white">
@@ -63,23 +73,30 @@ export default async function FacturasPage() {
             <div>
               <h1 className="text-lg font-medium text-neutral-900">Comprobantes</h1>
               <p className="text-xs text-neutral-500">
-                {facturaCount} factura{facturaCount !== 1 ? 's' : ''} · {ncCount} nota{ncCount !== 1 ? 's' : ''} de crédito
+                {facturaCount} factura{facturaCount !== 1 ? 's' : ''} · {ncCount} NC · {fceCount} FCE
               </p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Link 
                 href="/facturas/nueva-nc"
-                className="h-8 px-3 text-sm border border-neutral-200 hover:bg-neutral-50 rounded flex items-center justify-center gap-2"
+                className="h-8 px-3 text-sm border border-neutral-200 hover:bg-neutral-50 rounded flex items-center justify-center gap-1.5"
               >
-                <MinusCircle className="w-4 h-4" />
-                Nota de Crédito
+                <MinusCircle className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Nota de</span> Crédito
+              </Link>
+              <Link 
+                href="/facturas/nueva-fce"
+                className="h-8 px-3 text-sm border border-green-200 bg-green-50 hover:bg-green-100 text-green-700 rounded flex items-center justify-center gap-1.5"
+              >
+                <CreditCard className="w-3.5 h-3.5" />
+                FCE MiPyME
               </Link>
               <Link 
                 href="/facturas/nueva"
-                className="h-8 px-3 text-sm bg-orange-500 hover:bg-orange-600 text-white rounded flex items-center justify-center gap-2"
+                className="h-8 px-3 text-sm bg-orange-500 hover:bg-orange-600 text-white rounded flex items-center justify-center gap-1.5"
               >
-                <Plus className="w-4 h-4" />
-                Nueva Factura
+                <Plus className="w-3.5 h-3.5" />
+                Factura
               </Link>
             </div>
           </div>

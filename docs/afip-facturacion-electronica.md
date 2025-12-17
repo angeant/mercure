@@ -29,18 +29,18 @@
 | ND_B | 7           | Nota de Débito B |
 | ND_C | 12          | Nota de Débito C |
 
-### FCE - Factura de Crédito Electrónica MiPyMEs (no implementado ❌)
+### FCE - Factura de Crédito Electrónica MiPyMEs (implementado ✅)
 | Tipo | Código AFIP | Descripción |
 |------|-------------|-------------|
 | FCE_A | 201 | Factura de Crédito Electrónica A |
 | FCE_B | 206 | Factura de Crédito Electrónica B |
 | FCE_C | 211 | Factura de Crédito Electrónica C |
-| NC_FCE_A | 203 | Nota de Crédito FCE A |
-| NC_FCE_B | 208 | Nota de Crédito FCE B |
-| NC_FCE_C | 213 | Nota de Crédito FCE C |
-| ND_FCE_A | 202 | Nota de Débito FCE A |
-| ND_FCE_B | 207 | Nota de Débito FCE B |
-| ND_FCE_C | 212 | Nota de Débito FCE C |
+| NC_FCE_A | 203 | Nota de Crédito FCE A (pendiente UI) |
+| NC_FCE_B | 208 | Nota de Crédito FCE B (pendiente UI) |
+| NC_FCE_C | 213 | Nota de Crédito FCE C (pendiente UI) |
+| ND_FCE_A | 202 | Nota de Débito FCE A (pendiente UI) |
+| ND_FCE_B | 207 | Nota de Débito FCE B (pendiente UI) |
+| ND_FCE_C | 212 | Nota de Débito FCE C (pendiente UI) |
 
 ## Archivos del Sistema
 
@@ -53,12 +53,14 @@
 - `POST /api/afip/factura-directa` - Emitir factura directa
 - `POST /api/afip/factura-nueva` - Emitir factura desde liquidación
 - `POST /api/afip/nota-credito` - Emitir nota de crédito
+- `POST /api/afip/fce` - Emitir FCE MiPyME
 - `GET /api/afip/invoice` - Obtener datos de factura
 
 ### Páginas UI
-- `/facturas` - Listado de comprobantes (facturas y NC)
+- `/facturas` - Listado de comprobantes (facturas, NC, FCE)
 - `/facturas/nueva` - Emitir nueva factura
 - `/facturas/nueva-nc` - Emitir nota de crédito
+- `/facturas/nueva-fce` - Emitir FCE MiPyME
 
 ## Estructura de Datos
 
@@ -85,6 +87,42 @@ associated_voucher_type   INTEGER          -- Código AFIP del original
 associated_voucher_pos    INTEGER          -- Punto de venta original
 associated_voucher_number INTEGER          -- Número original
 ```
+
+## FCE - Factura de Crédito Electrónica MiPyMEs
+
+### ¿Qué es una FCE?
+Comprobante regulado por la Ley 27.440 para PyMEs que venden a grandes empresas.
+El receptor tiene 30 días para aceptar o rechazar. Puede ser cedida a entidades financieras.
+
+### Campos específicos FCE (Opcionales AFIP)
+| Código | Campo | Descripción |
+|--------|-------|-------------|
+| 2101   | CBU Emisor | CBU para cobro (22 dígitos) - **Obligatorio** |
+| 2102   | Alias Emisor | Alias del CBU emisor (opcional) |
+| 27     | CBU Receptor | CBU del receptor para pago directo (opcional) |
+| 2103   | SCA | Sistema Circulación Abierta: S=transferible, N=no |
+
+### Request SOAP para FCE
+```xml
+<ar:Opcionales>
+  <ar:Opcional>
+    <ar:Id>2101</ar:Id>
+    <ar:Valor>{cbu_emisor}</ar:Valor>
+  </ar:Opcional>
+  <ar:Opcional>
+    <ar:Id>2103</ar:Id>
+    <ar:Valor>S</ar:Valor>
+  </ar:Opcional>
+</ar:Opcionales>
+```
+
+### Requisitos para emitir FCE
+1. El emisor debe estar registrado como MiPyME en AFIP
+2. El receptor debe ser una "Gran Empresa" según AFIP
+3. El punto de venta debe estar habilitado para FCE
+4. Se requiere CBU válido de 22 dígitos
+
+---
 
 ## Notas de Crédito - Implementación
 

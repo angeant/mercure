@@ -6,8 +6,15 @@ export type InvoiceType = 'A' | 'B' | 'C';
 export type CreditNoteType = 'NC_A' | 'NC_B' | 'NC_C';
 // Notas de Débito
 export type DebitNoteType = 'ND_A' | 'ND_B' | 'ND_C';
+// FCE - Factura de Crédito Electrónica MiPyMEs
+export type FCEType = 'FCE_A' | 'FCE_B' | 'FCE_C';
+// NC FCE
+export type NCFCEType = 'NC_FCE_A' | 'NC_FCE_B' | 'NC_FCE_C';
+// ND FCE
+export type NDFCEType = 'ND_FCE_A' | 'ND_FCE_B' | 'ND_FCE_C';
+
 // Todos los tipos de comprobante
-export type VoucherType = InvoiceType | CreditNoteType | DebitNoteType;
+export type VoucherType = InvoiceType | CreditNoteType | DebitNoteType | FCEType | NCFCEType | NDFCEType;
 
 export const VOUCHER_TYPE_CODES: Record<VoucherType, number> = {
   // Facturas
@@ -22,6 +29,18 @@ export const VOUCHER_TYPE_CODES: Record<VoucherType, number> = {
   'ND_A': 2,
   'ND_B': 7,
   'ND_C': 12,
+  // FCE - Factura de Crédito Electrónica MiPyMEs
+  'FCE_A': 201,
+  'FCE_B': 206,
+  'FCE_C': 211,
+  // NC FCE
+  'NC_FCE_A': 203,
+  'NC_FCE_B': 208,
+  'NC_FCE_C': 213,
+  // ND FCE
+  'ND_FCE_A': 202,
+  'ND_FCE_B': 207,
+  'ND_FCE_C': 212,
 };
 
 // Mantener compatibilidad con código existente
@@ -41,6 +60,15 @@ export const VOUCHER_TYPE_LABELS: Record<VoucherType, string> = {
   'ND_A': 'Nota de Débito A',
   'ND_B': 'Nota de Débito B',
   'ND_C': 'Nota de Débito C',
+  'FCE_A': 'FCE MiPyME A',
+  'FCE_B': 'FCE MiPyME B',
+  'FCE_C': 'FCE MiPyME C',
+  'NC_FCE_A': 'NC FCE A',
+  'NC_FCE_B': 'NC FCE B',
+  'NC_FCE_C': 'NC FCE C',
+  'ND_FCE_A': 'ND FCE A',
+  'ND_FCE_B': 'ND FCE B',
+  'ND_FCE_C': 'ND FCE C',
 };
 
 export const CONCEPT_CODES = {
@@ -101,6 +129,28 @@ export interface CreateCreditNoteRequest {
   paymentDueDate?: string;
   // Comprobante asociado (obligatorio para NC)
   associatedVoucher: AssociatedVoucher;
+}
+
+// FCE - Factura de Crédito Electrónica MiPyMEs
+export interface CreateFCERequest {
+  fceType: FCEType;
+  pointOfSale: number;
+  concept: number;
+  docType: number;
+  docNumber: string;
+  invoiceDate: string;
+  totalAmount: number;
+  netAmount: number;
+  ivaAmount: number;
+  serviceFrom?: string;
+  serviceTo?: string;
+  paymentDueDate?: string;
+  // Campos específicos FCE
+  cbuEmisor: string;           // CBU del emisor (22 dígitos)
+  aliasEmisor?: string;        // Alias del CBU emisor (opcional)
+  cbuReceptor?: string;        // CBU del receptor (opcional)
+  aliasReceptor?: string;      // Alias del CBU receptor (opcional)
+  sca?: 'S' | 'N';             // Sistema de Circulación Abierta (S=transferible, N=no)
 }
 
 export interface InvoiceResponse {
