@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/layout/navbar";
-import { supabase } from "@/lib/supabase";
 import { Loader2, Save, ArrowLeft, Building2 } from "lucide-react";
 import Link from "next/link";
 
@@ -56,40 +55,36 @@ export default function NuevaEntidadPage() {
     setError(null);
 
     try {
-      // Crear entidad solo con campos que existen
-      const { data: newEntity, error: insertError } = await supabase
-        .schema('mercure').from('entities')
-        .insert({
-          legal_name: formData.legal_name,
-          tax_id: formData.tax_id || null,
-          entity_type: formData.entity_type || null,
-          payment_terms: formData.payment_terms || null,
-          email: formData.email || null,
-          phone: formData.phone || null,
-          address: formData.address || null,
-          notes: formData.notes || null,
-        })
-        .select()
-        .single();
+      const requestBody: Record<string, unknown> = {
+        legal_name: formData.legal_name,
+        tax_id: formData.tax_id || undefined,
+        entity_type: formData.entity_type || undefined,
+        payment_terms: formData.payment_terms || undefined,
+        email: formData.email || undefined,
+        phone: formData.phone || undefined,
+        address: formData.address || undefined,
+        notes: formData.notes || undefined,
+      };
 
-      if (insertError) {
-        throw new Error(insertError.message);
-      }
-
-      // Guardar términos comerciales si están habilitados
-      if (hasCommercialTerms && newEntity) {
-        const termsData = {
-          entity_id: newEntity.id,
+      // Agregar términos comerciales si están habilitados
+      if (hasCommercialTerms) {
+        requestBody.commercial_terms = {
           tariff_modifier: parseFloat(formData.tariff_modifier) || 0,
           insurance_rate: (parseFloat(formData.insurance_rate) || 0.8) / 100,
           credit_days: parseInt(formData.credit_days) || 0,
         };
+      }
 
-        const { error: termsError } = await supabase
-          .schema('mercure').from('client_commercial_terms')
-          .insert(termsData);
-        
-        if (termsError) throw new Error(termsError.message);
+      const response = await fetch('/api/entidades', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Error al crear entidad');
       }
 
       router.push('/entidades');
