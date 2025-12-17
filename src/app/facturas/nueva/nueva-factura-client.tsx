@@ -45,7 +45,11 @@ function formatDate(dateStr: string): string {
   return date.toLocaleDateString('es-AR');
 }
 
-export function NuevaFacturaClient() {
+interface NuevaFacturaClientProps {
+  initialClientes: Cliente[];
+}
+
+export function NuevaFacturaClient({ initialClientes }: NuevaFacturaClientProps) {
   const router = useRouter();
   const [mode, setMode] = useState<EmissionMode>('automatic');
   const [loading, setLoading] = useState(false);
@@ -58,8 +62,8 @@ export function NuevaFacturaClient() {
     error?: string;
   } | null>(null);
 
-  // Modo automático
-  const [clientes, setClientes] = useState<Cliente[]>([]);
+  // Modo automático - usar clientes del servidor
+  const [clientes] = useState<Cliente[]>(initialClientes);
   const [selectedClienteId, setSelectedClienteId] = useState<number | null>(null);
   const [remitos, setRemitos] = useState<Remito[]>([]);
   const [selectedRemitos, setSelectedRemitos] = useState<number[]>([]);
@@ -77,25 +81,7 @@ export function NuevaFacturaClient() {
   const [pointOfSale, setPointOfSale] = useState(5);
   const [sendEmail, setSendEmail] = useState(true);
 
-  // Cargar clientes con cuenta corriente
-  useEffect(() => {
-    async function loadClientes() {
-      setLoading(true);
-      const { data, error } = await supabase
-        .schema('mercure').from('entities')
-        .select('id, legal_name, tax_id')
-        .not('tax_id', 'is', null)
-        .order('legal_name');
-
-      if (data) {
-        setClientes(data);
-      }
-      setLoading(false);
-    }
-    loadClientes();
-  }, []);
-
-  // Cargar remitos no facturados del cliente
+  // Cargar remitos no facturados del cliente via API
   useEffect(() => {
     async function loadRemitos() {
       if (!selectedClienteId) {
@@ -104,44 +90,17 @@ export function NuevaFacturaClient() {
       }
 
       setLoadingRemitos(true);
-      const { data, error } = await supabase
-        .schema('mercure').from('shipments')
-        .select(`
-          id,
-          delivery_note_number,
-          created_at,
-          weight_kg,
-          volume_m3,
-          declared_value,
-          quotation_id,
-          recipient:entities!shipments_recipient_id_fkey(legal_name)
-        `)
-        .eq('sender_id', selectedClienteId)
-        .is('invoice_id', null)
-        .order('created_at', { ascending: false });
-
-      if (data) {
-        // Cargar cotizaciones para obtener precios
-        const remitosConPrecio = await Promise.all(
-          data.map(async (r: any) => {
-            let precio = 0;
-            if (r.quotation_id) {
-              const { data: q } = await supabase
-                .schema('mercure').from('quotations')
-                .select('total_price')
-                .eq('id', r.quotation_id)
-                .single();
-              precio = q?.total_price || 0;
-            }
-            return {
-              ...r,
-              recipient_name: r.recipient?.legal_name,
-              quotation: { total_price: precio }
-            };
-          })
-        );
-        setRemitos(remitosConPrecio);
-        setSelectedRemitos(remitosConPrecio.map(r => r.id)); // Seleccionar todos por default
+      try {
+        const response = await fetch(`/api/remitos-pendientes?cliente_id=${selectedClienteId}`);
+        const data = await response.json();
+        
+        if (data.remitos) {
+          setRemitos(data.remitos);
+          setSelectedRemitos(data.remitos.map((r: Remito) => r.id)); // Seleccionar todos por default
+        }
+      } catch (error) {
+        console.error('Error loading remitos:', error);
+        setRemitos([]);
       }
       setLoadingRemitos(false);
     }
