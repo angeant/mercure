@@ -10,6 +10,16 @@ async function getTrip(id: number) {
     .select(`*, vehicle:vehicles(identifier, tractor_license_plate)`)
     .eq('id', id)
     .single();
+  
+  // Asegurarse de que los campos del conductor existan
+  if (data) {
+    return {
+      ...data,
+      driver_name: data.driver_name || null,
+      driver_dni: data.driver_dni || null,
+      driver_phone: data.driver_phone || null,
+    };
+  }
   return data;
 }
 

@@ -2,9 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Plus, ArrowLeft, Truck, Package, X } from "lucide-react";
+import { Loader2, Plus, ArrowLeft, Truck, Package, X, FileText, User, Printer } from "lucide-react";
 import Link from "next/link";
 import { TRIP_STATUS_LABELS } from "@/lib/types";
 
@@ -16,6 +15,9 @@ interface Trip {
   departure_time: string | null;
   arrival_time: string | null;
   notes: string | null;
+  driver_name?: string | null;
+  driver_dni?: string | null;
+  driver_phone?: string | null;
   vehicle?: {
     identifier: string;
     tractor_license_plate: string;
@@ -109,9 +111,10 @@ export function TripDetailClient({
         throw new Error('Remitente es requerido');
       }
 
-      const { data, error: insertError } = await supabase
-        .schema('mercure').from('shipments')
-        .insert({
+      const response = await fetch(`/api/viajes/${trip.id}/shipments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           delivery_note_number: formData.delivery_note_number,
           sender_id: parseInt(formData.sender_id),
           recipient_id: formData.recipient_id ? parseInt(formData.recipient_id) : null,
@@ -122,42 +125,28 @@ export function TripDetailClient({
           insurance_cost: formData.insurance_cost ? parseFloat(formData.insurance_cost) : null,
           origin: formData.origin,
           destination: formData.destination,
-          trip_id: trip.id,
-          status: 'rendida', // Marcamos como rendido para que aparezca en cuenta corriente
-        })
-        .select(`
-          *,
-          sender:entities!shipments_sender_id_fkey(id, legal_name),
-          recipient:entities!shipments_recipient_id_fkey(id, legal_name)
-        `)
-        .single();
+          status: 'rendida',
+        }),
+      });
 
-      if (insertError) {
-        throw new Error(insertError.message);
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Error al guardar');
       }
 
-      // Add to local state
-      setShipments(prev => [data, ...prev]);
-      
-      // Reset form
-      setFormData({
-        delivery_note_number: '',
-        sender_id: '',
-        recipient_id: '',
-        weight_kg: '',
-        volume_m3: '',
-        declared_value: '',
-        freight_cost: '',
-        insurance_cost: '',
-        origin: trip.origin,
-        destination: trip.destination,
-      });
-      setShowAddForm(false);
+      // Reload page to get updated data
+      router.refresh();
+      window.location.reload();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al guardar');
     } finally {
       setSaving(false);
     }
+  };
+
+  const handlePrintHojaRuta = () => {
+    window.open(`/viajes/${trip.id}/hoja-ruta`, '_blank');
   };
 
   const totalFlete = shipments.reduce((sum, s) => sum + (s.freight_cost || 0), 0);
@@ -186,17 +175,26 @@ export function TripDetailClient({
             </p>
           </div>
         </div>
-        <button
-          onClick={() => setShowAddForm(true)}
-          className="h-8 px-3 text-sm bg-orange-500 hover:bg-orange-600 text-white rounded flex items-center gap-2"
-        >
-          <Plus className="w-4 h-4" />
-          Agregar Remito
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handlePrintHojaRuta}
+            className="h-8 px-3 text-sm border border-neutral-200 hover:bg-neutral-50 text-neutral-700 rounded flex items-center gap-2"
+          >
+            <Printer className="w-4 h-4" />
+            Hoja de Ruta
+          </button>
+          <button
+            onClick={() => setShowAddForm(true)}
+            className="h-8 px-3 text-sm bg-orange-500 hover:bg-orange-600 text-white rounded flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            Agregar Remito
+          </button>
+        </div>
       </div>
 
       {/* Trip Info */}
-      <div className="grid grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
         <div className="border border-neutral-200 rounded p-3">
           <div className="text-xs text-neutral-500 uppercase mb-1">Vehículo</div>
           <div className="flex items-center gap-2">
@@ -208,6 +206,20 @@ export function TripDetailClient({
           <div className="text-xs text-neutral-400 mt-1">
             {trip.vehicle?.tractor_license_plate || '-'}
           </div>
+        </div>
+        <div className="border border-orange-200 bg-orange-50 rounded p-3">
+          <div className="text-xs text-orange-600 uppercase mb-1 flex items-center gap-1">
+            <User className="w-3 h-3" /> Conductor
+          </div>
+          <div className="text-sm font-medium text-neutral-900">
+            {trip.driver_name || '-'}
+          </div>
+          {trip.driver_dni && (
+            <div className="text-xs text-neutral-500 mt-1">
+              DNI: {trip.driver_dni}
+              {trip.driver_phone && ` · ${trip.driver_phone}`}
+            </div>
+          )}
         </div>
         <div className="border border-neutral-200 rounded p-3">
           <div className="text-xs text-neutral-500 uppercase mb-1">Salida</div>

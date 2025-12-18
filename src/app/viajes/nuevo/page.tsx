@@ -3,8 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/layout/navbar";
-import { supabase } from "@/lib/supabase";
-import { Loader2, Save, ArrowLeft, Truck, Package, MapPin, Building2, Calendar, DollarSign, Weight, Box } from "lucide-react";
+import { Loader2, Save, ArrowLeft, Truck, Package, MapPin, Building2, Calendar, DollarSign, Weight, Box, User } from "lucide-react";
 import Link from "next/link";
 
 interface Entity {
@@ -17,6 +16,8 @@ interface Vehicle {
   id: number;
   identifier: string;
   tractor_license_plate: string | null;
+  brand?: string;
+  model?: string;
 }
 
 type TripType = 'consolidado' | 'camion_completo';
@@ -47,13 +48,17 @@ export default function NuevoViajePage() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
   
-  const [tripType, setTripType] = useState<TripType>('camion_completo');
+  const [tripType, setTripType] = useState<TripType>('consolidado');
   
   const [formData, setFormData] = useState({
     origin: 'Buenos Aires',
     destination: 'Jujuy',
     vehicle_id: '',
     departure_time: '',
+    // Conductor/Guía
+    driver_name: '',
+    driver_dni: '',
+    driver_phone: '',
     // Campos para camión completo
     client_id: '',
     supplier_id: '',
@@ -68,13 +73,16 @@ export default function NuevoViajePage() {
 
   useEffect(() => {
     async function loadData() {
-      const [entitiesRes, vehiclesRes] = await Promise.all([
-        supabase.schema('mercure').from('entities').select('id, legal_name, tax_id').order('legal_name'),
-        supabase.schema('mercure').from('vehicles').select('id, identifier, tractor_license_plate').order('identifier'),
-      ]);
-      setEntities(entitiesRes.data || []);
-      setVehicles(vehiclesRes.data || []);
-      setLoading(false);
+      try {
+        const response = await fetch('/api/viajes/data');
+        const data = await response.json();
+        setEntities(data.entities || []);
+        setVehicles(data.vehicles || []);
+      } catch (err) {
+        console.error('Error loading data:', err);
+      } finally {
+        setLoading(false);
+      }
     }
     loadData();
   }, []);
@@ -92,39 +100,22 @@ export default function NuevoViajePage() {
     setError(null);
 
     try {
-      const tripData: Record<string, unknown> = {
-        trip_type: tripType,
-        origin: formData.origin,
-        destination: formData.destination,
-        status: 'planned',
-        vehicle_id: formData.vehicle_id ? parseInt(formData.vehicle_id) : null,
-        departure_time: formData.departure_time || null,
-        notes: formData.notes || null,
-      };
+      const response = await fetch('/api/viajes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          trip_type: tripType,
+          ...formData,
+        }),
+      });
 
-      // Campos adicionales para camión completo
-      if (tripType === 'camion_completo') {
-        tripData.client_id = formData.client_id ? parseInt(formData.client_id) : null;
-        tripData.supplier_id = formData.supplier_id ? parseInt(formData.supplier_id) : null;
-        tripData.agreed_price = formData.agreed_price ? parseFloat(formData.agreed_price) : null;
-        tripData.pickup_address = formData.pickup_address || null;
-        tripData.delivery_address = formData.delivery_address || null;
-        tripData.cargo_description = formData.cargo_description || null;
-        tripData.weight_kg = formData.weight_kg ? parseFloat(formData.weight_kg) : null;
-        tripData.volume_m3 = formData.volume_m3 ? parseFloat(formData.volume_m3) : null;
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Error al crear viaje');
       }
 
-      const { data: newTrip, error: insertError } = await supabase
-        .schema('mercure').from('trips')
-        .insert(tripData)
-        .select()
-        .single();
-
-      if (insertError) {
-        throw new Error(insertError.message);
-      }
-
-      router.push(`/viajes/${newTrip.id}`);
+      router.push(`/viajes/${result.trip.id}`);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al crear viaje');
@@ -269,6 +260,58 @@ export default function NuevoViajePage() {
                     name="departure_time"
                     value={formData.departure_time}
                     onChange={handleChange}
+                    className="w-full h-10 px-3 border border-neutral-200 rounded text-sm focus:border-neutral-400 focus:ring-0"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Conductor / Guía */}
+            <div className="border border-neutral-200 rounded overflow-hidden">
+              <div className="bg-orange-50 px-3 py-2 border-b border-orange-200">
+                <span className="text-xs font-medium text-orange-700 uppercase tracking-wide flex items-center gap-2">
+                  <User className="w-3 h-3" /> Conductor / Guía
+                </span>
+              </div>
+              <div className="p-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-neutral-500 uppercase mb-1">
+                    Nombre del Conductor
+                  </label>
+                  <input
+                    type="text"
+                    name="driver_name"
+                    value={formData.driver_name}
+                    onChange={handleChange}
+                    placeholder="Nombre completo"
+                    className="w-full h-10 px-3 border border-neutral-200 rounded text-sm focus:border-neutral-400 focus:ring-0"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-neutral-500 uppercase mb-1">
+                    DNI
+                  </label>
+                  <input
+                    type="text"
+                    name="driver_dni"
+                    value={formData.driver_dni}
+                    onChange={handleChange}
+                    placeholder="12.345.678"
+                    className="w-full h-10 px-3 border border-neutral-200 rounded text-sm focus:border-neutral-400 focus:ring-0"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-neutral-500 uppercase mb-1">
+                    Teléfono
+                  </label>
+                  <input
+                    type="text"
+                    name="driver_phone"
+                    value={formData.driver_phone}
+                    onChange={handleChange}
+                    placeholder="011-1234-5678"
                     className="w-full h-10 px-3 border border-neutral-200 rounded text-sm focus:border-neutral-400 focus:ring-0"
                   />
                 </div>
