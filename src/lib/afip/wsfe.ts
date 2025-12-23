@@ -1,6 +1,9 @@
 /**
  * Cliente WSFE (Web Service de Facturación Electrónica) de AFIP
  * Documentación: https://www.afip.gob.ar/ws/documentacion/ws-factura-electronica.asp
+ * 
+ * NOTA: AFIP usa claves DH pequeñas que Node.js 17+ rechaza por defecto.
+ * Este módulo usa undici con configuración TLS permisiva para AFIP.
  */
 
 import { getWSAACredentials, getAfipConfig } from './wsaa';
@@ -17,6 +20,49 @@ import {
   FCEType,
   VoucherType
 } from './types';
+import { Agent, fetch as undiciFetch } from 'undici';
+
+/**
+ * Agente undici para AFIP con configuración TLS permisiva
+ * AFIP usa claves DH pequeñas que Node.js 17+ rechaza por defecto
+ */
+const afipAgent = new Agent({
+  connect: {
+    // Permitir claves DH pequeñas y ciphers legacy
+    ciphers: 'DEFAULT:@SECLEVEL=0',
+    // Verificar certificados del servidor
+    rejectUnauthorized: true,
+    // Timeout de conexión
+    timeout: 30000,
+  },
+});
+
+/**
+ * Fetch wrapper para llamadas a AFIP usando undici
+ * con configuración TLS que acepta claves DH pequeñas
+ */
+async function afipFetch(url: string, options: RequestInit): Promise<Response> {
+  try {
+    const response = await undiciFetch(url, {
+      ...options,
+      dispatcher: afipAgent,
+    } as any);
+    
+    // Convertir a Response estándar
+    return response as unknown as Response;
+  } catch (error) {
+    // Detectar error de DH key y dar mensaje más claro
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    if (errorMessage.includes('dh key too small') || errorMessage.includes('DH_KEY_TOO_SMALL')) {
+      throw new Error(
+        'Error SSL con AFIP: No se pudo establecer conexión segura con el servidor de AFIP. ' +
+        'Por favor contacte soporte técnico.'
+      );
+    }
+    console.error('Error en afipFetch:', error);
+    throw error;
+  }
+}
 
 async function getWSFEUrl(): Promise<string> {
   const config = await getAfipConfig();
@@ -53,7 +99,7 @@ export async function getLastVoucherNumberByType(pointOfSale: number, voucherTyp
 </soap:Envelope>`;
 
   try {
-    const response = await fetch(wsfeUrl.replace('?WSDL', ''), {
+    const response = await afipFetch(wsfeUrl.replace('?WSDL', ''), {
       method: 'POST',
       headers: {
         'Content-Type': 'text/xml; charset=utf-8',
@@ -102,7 +148,7 @@ export async function getLastVoucherNumber(pointOfSale: number, invoiceType: Inv
 </soap:Envelope>`;
 
   try {
-    const response = await fetch(wsfeUrl.replace('?WSDL', ''), {
+    const response = await afipFetch(wsfeUrl.replace('?WSDL', ''), {
       method: 'POST',
       headers: {
         'Content-Type': 'text/xml; charset=utf-8',
@@ -197,7 +243,7 @@ export async function createInvoice(request: CreateInvoiceRequest): Promise<Invo
   try {
     console.log('WSFE Request:', soapRequest);
     
-    const response = await fetch(wsfeUrl.replace('?WSDL', ''), {
+    const response = await afipFetch(wsfeUrl.replace('?WSDL', ''), {
       method: 'POST',
       headers: {
         'Content-Type': 'text/xml; charset=utf-8',
@@ -287,7 +333,7 @@ export async function getPointsOfSale(): Promise<{
   </soap:Body>
 </soap:Envelope>`;
 
-    const response = await fetch(wsfeUrl.replace('?WSDL', ''), {
+    const response = await afipFetch(wsfeUrl.replace('?WSDL', ''), {
       method: 'POST',
       headers: {
         'Content-Type': 'text/xml; charset=utf-8',
@@ -339,7 +385,7 @@ export async function checkServiceStatus(): Promise<{
 </soap:Envelope>`;
 
   try {
-    const response = await fetch(wsfeUrl.replace('?WSDL', ''), {
+    const response = await afipFetch(wsfeUrl.replace('?WSDL', ''), {
       method: 'POST',
       headers: {
         'Content-Type': 'text/xml; charset=utf-8',
@@ -447,7 +493,7 @@ export async function createCreditNote(request: CreateCreditNoteRequest): Promis
   try {
     console.log('WSFE NC Request:', soapRequest);
     
-    const response = await fetch(wsfeUrl.replace('?WSDL', ''), {
+    const response = await afipFetch(wsfeUrl.replace('?WSDL', ''), {
       method: 'POST',
       headers: {
         'Content-Type': 'text/xml; charset=utf-8',
@@ -601,7 +647,7 @@ export async function createFCE(request: CreateFCERequest): Promise<InvoiceRespo
   try {
     console.log('WSFE FCE Request:', soapRequest);
     
-    const response = await fetch(wsfeUrl.replace('?WSDL', ''), {
+    const response = await afipFetch(wsfeUrl.replace('?WSDL', ''), {
       method: 'POST',
       headers: {
         'Content-Type': 'text/xml; charset=utf-8',

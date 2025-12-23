@@ -11,3 +11,5 @@ COMMENT ON COLUMN mercure.trips.driver_name IS 'Nombre del conductor/guía asign
 COMMENT ON COLUMN mercure.trips.driver_dni IS 'DNI del conductor';
 COMMENT ON COLUMN mercure.trips.driver_phone IS 'Teléfono del conductor';
 
+
+

@@ -18,3 +18,5 @@ COMMENT ON COLUMN mercure.invoices.associated_voucher_number IS 'Número del com
 CREATE INDEX IF NOT EXISTS idx_invoices_voucher_type ON mercure.invoices(voucher_type);
 
 
+
+

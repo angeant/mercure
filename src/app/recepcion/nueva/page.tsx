@@ -6,7 +6,7 @@ import { Navbar } from "@/components/layout/navbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, ArrowLeft, Sparkles, CheckCircle2, AlertCircle, Calculator, ChevronDown, ChevronUp } from "lucide-react";
+import { Loader2, ArrowLeft, Sparkles, CheckCircle2, AlertCircle, Calculator, ChevronDown, ChevronUp, Search, X } from "lucide-react";
 import Link from "next/link";
 import { ImageCapture, CapturedImage } from "./image-capture";
 
@@ -42,6 +42,7 @@ interface FormData {
   deliveryNoteNumber: string;
   date: string;
   origin: string; // Origen del envío
+  destination: string; // Destino del envío
   // Carga (lo más importante)
   packageQuantity: string;
   weightKg: string;
@@ -75,6 +76,16 @@ const ORIGINS = [
   { value: 'Salta', label: 'Salta' },
 ];
 
+const DESTINATIONS = [
+  { value: 'Jujuy', label: 'Jujuy' },
+  { value: 'Salta', label: 'Salta' },
+  { value: 'Tucumán', label: 'Tucumán' },
+  { value: 'Buenos Aires', label: 'Buenos Aires' },
+  { value: 'Córdoba', label: 'Córdoba' },
+  { value: 'Mendoza', label: 'Mendoza' },
+  { value: 'Rosario', label: 'Rosario' },
+];
+
 // Campos que necesitan confirmación (no se pudieron extraer automáticamente)
 interface PendingFields {
   packageQuantity: boolean;
@@ -89,6 +100,11 @@ interface EntityMatch {
   legal_name: string;
   tax_id: string | null;
   address: string | null;
+  phone?: string | null;
+  email?: string | null;
+  delivery_type?: string | null;
+  client_type?: string | null;
+  payment_terms?: string | null;
 }
 
 type RecipientStatus = 'pending' | 'found' | 'not_found' | 'new';
@@ -137,6 +153,20 @@ function NuevaRecepcionContent() {
   
   // Estado para remitente (simple, solo para mostrar si se encontró)
   const [senderStatus, setSenderStatus] = useState<'pending' | 'found'>('pending');
+  
+  // Estado para búsqueda de clientes (dropdown)
+  const [allClients, setAllClients] = useState<EntityMatch[]>([]);
+  const [clientSearchQuery, setClientSearchQuery] = useState('');
+  const [showClientDropdown, setShowClientDropdown] = useState(false);
+  const [loadingClients, setLoadingClients] = useState(false);
+  
+  // Filtrar clientes según búsqueda
+  const filteredClients = clientSearchQuery.length >= 2
+    ? allClients.filter(c => 
+        c.legal_name.toLowerCase().includes(clientSearchQuery.toLowerCase()) ||
+        (c.tax_id && c.tax_id.includes(clientSearchQuery))
+      ).slice(0, 10) // Limitar a 10 resultados
+    : [];
 
   // Estado para pricing (árbol de decisión A/B/C)
   interface DebugInfo {
@@ -236,6 +266,7 @@ function NuevaRecepcionContent() {
     deliveryNoteNumber: "",
     date: new Date().toISOString().split("T")[0],
     origin: "Buenos Aires", // Origen por defecto
+    destination: "Jujuy", // Destino por defecto
     // Carga
     packageQuantity: "",
     weightKg: "",
@@ -289,7 +320,7 @@ function NuevaRecepcionContent() {
     return result;
   };
 
-  // Seleccionar un destinatario de las sugerencias
+  // Seleccionar un destinatario de las sugerencias o dropdown
   const selectRecipient = (entity: EntityMatch) => {
     setFormData(prev => ({
       ...prev,
@@ -297,9 +328,17 @@ function NuevaRecepcionContent() {
       recipientName: entity.legal_name,
       recipientCuit: entity.tax_id || '',
       recipientAddress: entity.address || '',
+      recipientPhone: entity.phone || '',
+      recipientEmail: entity.email || '',
+      // Si el cliente tiene cuenta corriente, cambiar condición de pago
+      paymentTerms: entity.payment_terms === 'cuenta_corriente' ? 'cuenta_corriente' : prev.paymentTerms,
     }));
     setRecipientStatus('found');
     setRecipientSuggestions([]);
+    // Limpiar campos pendientes si ya tiene dirección
+    if (entity.address) {
+      confirmField('recipientAddress');
+    }
     // Detectar pricing cuando se selecciona cliente
     detectPricing(entity.tax_id || undefined, entity.legal_name);
   };
@@ -319,7 +358,8 @@ function NuevaRecepcionContent() {
         body: JSON.stringify({
           recipientCuit: cuit || formData.recipientCuit,
           recipientName: name || formData.recipientName,
-          destination: formData.recipientAddress || formData.recipientLocality,
+          origin: formData.origin,
+          destination: formData.destination,
           packageQuantity: formData.packageQuantity ? parseInt(formData.packageQuantity) : undefined,
           weightKg: formData.weightKg ? parseFloat(formData.weightKg) : undefined,
           volumeM3: formData.volumeM3 ? parseFloat(formData.volumeM3) : undefined,
@@ -369,6 +409,23 @@ function NuevaRecepcionContent() {
       }
     }
   }, [searchParams]);
+  
+  // Cargar lista de clientes al inicio
+  useEffect(() => {
+    const loadClients = async () => {
+      setLoadingClients(true);
+      try {
+        const response = await fetch('/api/clientes');
+        const { data } = await response.json();
+        setAllClients(data || []);
+      } catch (err) {
+        console.error('Error loading clients:', err);
+      } finally {
+        setLoadingClients(false);
+      }
+    };
+    loadClients();
+  }, []);
 
   const analyzeImages = async () => {
     if (!hasImages) {
@@ -764,6 +821,19 @@ function NuevaRecepcionContent() {
                   </select>
                 </div>
                 <div>
+                  <Label className="text-xs mb-1 block">Destino</Label>
+                  <select
+                    name="destination"
+                    value={formData.destination}
+                    onChange={(e) => setFormData(prev => ({ ...prev, destination: e.target.value }))}
+                    className="w-full h-8 px-2 text-sm border border-neutral-200 rounded focus:border-neutral-400 focus:ring-0"
+                  >
+                    {DESTINATIONS.map(d => (
+                      <option key={d.value} value={d.value}>{d.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
                   <Label className="text-xs mb-1 block flex items-center gap-1">
                     Bultos
                     {pendingFields.packageQuantity && <span className="text-red-500">*</span>}
@@ -1054,14 +1124,111 @@ function NuevaRecepcionContent() {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="sm:col-span-2">
                     <Label className="text-xs mb-1 block">Cliente / Razón Social</Label>
-                    <Input
-                      name="recipientName"
-                      value={formData.recipientName}
-                      onChange={handleInputChange}
-                      className="h-8 text-sm"
-                      placeholder="Nombre del cliente"
-                      disabled={recipientStatus === 'found'}
-                    />
+                    <div className="relative">
+                      {recipientStatus === 'found' ? (
+                        // Cliente seleccionado - mostrar badge
+                        <div className="flex items-center gap-2 h-8 px-3 bg-green-50 border border-green-200 rounded">
+                          <CheckCircle2 className="h-4 w-4 text-green-600" />
+                          <span className="text-sm font-medium text-green-800 truncate flex-1">
+                            {formData.recipientName}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setRecipientStatus('pending');
+                              setFormData(prev => ({
+                                ...prev,
+                                recipientId: null,
+                                recipientName: '',
+                                recipientCuit: '',
+                                recipientAddress: '',
+                                recipientPhone: '',
+                                recipientEmail: '',
+                              }));
+                              setClientSearchQuery('');
+                              setPricingInfo(null);
+                              setCalculatedPrice(null);
+                            }}
+                            className="p-0.5 hover:bg-green-100 rounded"
+                          >
+                            <X className="h-3.5 w-3.5 text-green-600" />
+                          </button>
+                        </div>
+                      ) : (
+                        // Búsqueda de cliente
+                        <>
+                          <div className="relative">
+                            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
+                            <Input
+                              value={clientSearchQuery}
+                              onChange={(e) => {
+                                setClientSearchQuery(e.target.value);
+                                setShowClientDropdown(true);
+                              }}
+                              onFocus={() => setShowClientDropdown(true)}
+                              className="h-8 text-sm pl-8"
+                              placeholder={loadingClients ? "Cargando clientes..." : "Buscar cliente por nombre o CUIT..."}
+                            />
+                          </div>
+                          
+                          {/* Dropdown de resultados */}
+                          {showClientDropdown && filteredClients.length > 0 && (
+                            <div className="absolute z-20 w-full mt-1 bg-white border border-neutral-200 rounded shadow-lg max-h-60 overflow-y-auto">
+                              {filteredClients.map((client) => (
+                                <button
+                                  key={client.id}
+                                  type="button"
+                                  onClick={() => {
+                                    selectRecipient(client);
+                                    setClientSearchQuery('');
+                                    setShowClientDropdown(false);
+                                  }}
+                                  className="w-full px-3 py-2 text-left hover:bg-orange-50 border-b border-neutral-100 last:border-0 transition-colors"
+                                >
+                                  <div className="text-sm font-medium text-neutral-900 truncate">
+                                    {client.legal_name}
+                                  </div>
+                                  <div className="text-xs text-neutral-500 flex gap-2">
+                                    {client.tax_id && <span>CUIT: {client.tax_id}</span>}
+                                    {client.address && <span className="truncate">• {client.address}</span>}
+                                  </div>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                          
+                          {/* Mensaje cuando no hay resultados */}
+                          {showClientDropdown && clientSearchQuery.length >= 2 && filteredClients.length === 0 && (
+                            <div className="absolute z-20 w-full mt-1 bg-white border border-neutral-200 rounded shadow-lg p-3">
+                              <div className="text-sm text-neutral-500 text-center">
+                                No se encontró "{clientSearchQuery}"
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setFormData(prev => ({
+                                    ...prev,
+                                    recipientName: clientSearchQuery,
+                                  }));
+                                  setRecipientStatus('new');
+                                  setShowClientDropdown(false);
+                                }}
+                                className="w-full mt-2 px-3 py-1.5 text-xs bg-orange-50 text-orange-700 rounded hover:bg-orange-100 transition-colors"
+                              >
+                                + Crear cliente nuevo: "{clientSearchQuery}"
+                              </button>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                    {/* Click fuera para cerrar dropdown */}
+                    {showClientDropdown && (
+                      <div 
+                        className="fixed inset-0 z-10" 
+                        onClick={() => setShowClientDropdown(false)}
+                      />
+                    )}
                   </div>
                   <div>
                     <Label className="text-xs mb-1 block">Teléfono</Label>

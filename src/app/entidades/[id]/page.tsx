@@ -11,6 +11,17 @@ interface CommercialTerms {
   credit_days: number;
 }
 
+interface SpecialTariff {
+  id: number;
+  name: string;
+  description: string | null;
+  condition_type: string;
+  pricing_type: string;
+  pricing_values: Record<string, unknown>;
+  is_active: boolean;
+  insurance_rate: number | null;
+}
+
 async function getEntity(id: number) {
   if (!supabaseAdmin) return null;
   
@@ -33,14 +44,26 @@ async function getCommercialTerms(entityId: number): Promise<CommercialTerms | n
   return data;
 }
 
+async function getSpecialTariffs(entityId: number): Promise<SpecialTariff[]> {
+  if (!supabaseAdmin) return [];
+  
+  const { data } = await supabaseAdmin
+    .schema('mercure').from('client_special_tariffs')
+    .select('id, name, description, condition_type, pricing_type, pricing_values, is_active, insurance_rate')
+    .eq('entity_id', entityId)
+    .order('priority', { ascending: false });
+  return data || [];
+}
+
 export default async function EditEntityPage({ params }: { params: Promise<{ id: string }> }) {
   await requireAuth("/entidades");
   const { id } = await params;
   const entityId = parseInt(id);
   
-  const [entity, commercialTerms] = await Promise.all([
+  const [entity, commercialTerms, specialTariffs] = await Promise.all([
     getEntity(entityId),
     getCommercialTerms(entityId),
+    getSpecialTariffs(entityId),
   ]);
 
   if (!entity) {
@@ -56,7 +79,7 @@ export default async function EditEntityPage({ params }: { params: Promise<{ id:
             <h1 className="text-lg font-medium text-neutral-900">Editar Entidad</h1>
             <p className="text-sm text-neutral-500 mt-1">{entity.legal_name}</p>
           </div>
-          <EditEntityForm entity={entity} commercialTerms={commercialTerms} />
+          <EditEntityForm entity={entity} commercialTerms={commercialTerms} specialTariffs={specialTariffs} />
         </div>
       </main>
     </div>

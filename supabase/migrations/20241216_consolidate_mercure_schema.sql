@@ -125,3 +125,5 @@ GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA mercure TO authenticated;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA mercure TO service_role;
 
 
+
+

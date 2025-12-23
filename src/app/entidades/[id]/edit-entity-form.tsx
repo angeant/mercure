@@ -11,6 +11,7 @@ interface Entity {
   tax_id: string | null;
   entity_type: string | null;
   payment_terms: string | null;
+  delivery_type: string | null;
   email: string | null;
   phone: string | null;
   address: string | null;
@@ -22,6 +23,17 @@ interface CommercialTerms {
   tariff_modifier: number;
   insurance_rate: number;
   credit_days: number;
+}
+
+interface SpecialTariff {
+  id: number;
+  name: string;
+  description: string | null;
+  condition_type: string;
+  pricing_type: string;
+  pricing_values: Record<string, unknown>;
+  is_active: boolean;
+  insurance_rate: number | null;
 }
 
 const ENTITY_TYPES = [
@@ -38,7 +50,38 @@ const PAYMENT_TERMS = [
   { value: 'transferencia', label: 'Transferencia' },
 ];
 
-export function EditEntityForm({ entity, commercialTerms }: { entity: Entity; commercialTerms: CommercialTerms | null }) {
+const DELIVERY_TYPES = [
+  { value: 'deposito', label: 'Depósito (retira en sucursal)' },
+  { value: 'domicilio', label: 'Domicilio (se entrega en destino)' },
+];
+
+function formatPricing(tariff: SpecialTariff): string {
+  const pv = tariff.pricing_values || {};
+  switch (tariff.pricing_type) {
+    case 'fijo':
+      return `$${((pv.precio as number) || 0).toLocaleString('es-AR')}`;
+    case 'por_kg':
+      return `$${pv.precio_kg}/kg`;
+    case 'por_m3':
+      return `$${((pv.precio_m3 as number) || 0).toLocaleString('es-AR')}/m³`;
+    case 'por_pallet':
+      return `$${((pv.precio_pallet as number) || 0).toLocaleString('es-AR')}/pallet`;
+    case 'por_bulto':
+      return `$${((pv.precio_bulto as number) || 0).toLocaleString('es-AR')}/${pv.tipo_producto || 'bulto'}`;
+    case 'descuento_porcentaje':
+      return pv.precio_m3 
+        ? `M³×$${(pv.precio_m3 as number).toLocaleString('es-AR')} ${pv.porcentaje}%`
+        : `${pv.porcentaje}%`;
+    case 'descuento_monto':
+      return `-$${Math.abs((pv.monto as number) || 0).toLocaleString('es-AR')}`;
+    case 'formula_custom':
+      return (pv.formula as string) || 'Fórmula';
+    default:
+      return '-';
+  }
+}
+
+export function EditEntityForm({ entity, commercialTerms, specialTariffs }: { entity: Entity; commercialTerms: CommercialTerms | null; specialTariffs: SpecialTariff[] }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,6 +91,7 @@ export function EditEntityForm({ entity, commercialTerms }: { entity: Entity; co
     tax_id: entity.tax_id || '',
     entity_type: entity.entity_type || '',
     payment_terms: entity.payment_terms || '',
+    delivery_type: entity.delivery_type || 'deposito',
     email: entity.email || '',
     phone: entity.phone || '',
     address: entity.address || '',
@@ -80,6 +124,7 @@ export function EditEntityForm({ entity, commercialTerms }: { entity: Entity; co
         tax_id: formData.tax_id || null,
         entity_type: formData.entity_type || null,
         payment_terms: formData.payment_terms || null,
+        delivery_type: formData.delivery_type || 'deposito',
         email: formData.email || null,
         phone: formData.phone || null,
         address: formData.address || null,
@@ -188,6 +233,25 @@ export function EditEntityForm({ entity, commercialTerms }: { entity: Entity; co
               <option key={t.value} value={t.value}>{t.label}</option>
             ))}
           </select>
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-neutral-500 uppercase mb-1">
+            Tipo de Entrega
+          </label>
+          <select
+            name="delivery_type"
+            value={formData.delivery_type}
+            onChange={handleChange}
+            className="w-full h-10 px-3 border border-neutral-200 rounded text-sm focus:border-neutral-400 focus:ring-0"
+          >
+            {DELIVERY_TYPES.map(t => (
+              <option key={t.value} value={t.value}>{t.label}</option>
+            ))}
+          </select>
+          <p className="text-[10px] text-neutral-400 mt-1">
+            Define qué tarifario se usa para cotizar (Depósito o Domicilio)
+          </p>
         </div>
 
         <div>
@@ -326,6 +390,43 @@ export function EditEntityForm({ entity, commercialTerms }: { entity: Entity; co
           </div>
         )}
       </div>
+
+      {/* Tarifas Especiales */}
+      {specialTariffs.length > 0 && (
+        <div className="border border-neutral-200 rounded overflow-hidden mt-6">
+          <div className="bg-neutral-50 px-3 py-2 border-b border-neutral-200 flex items-center justify-between">
+            <span className="text-xs font-medium text-neutral-500 uppercase tracking-wide">
+              Tarifas Especiales ({specialTariffs.length})
+            </span>
+            <Link
+              href="/tarifas"
+              className="text-xs text-orange-500 hover:text-orange-600"
+            >
+              Gestionar →
+            </Link>
+          </div>
+          <div className="divide-y divide-neutral-100">
+            {specialTariffs.map((t) => (
+              <div key={t.id} className="px-3 py-2 flex items-center justify-between">
+                <div>
+                  <span className="font-medium text-sm">{t.name}</span>
+                  {t.description && (
+                    <span className="text-xs text-neutral-400 ml-2">{t.description}</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-mono bg-neutral-100 px-2 py-0.5 rounded">
+                    {formatPricing(t)}
+                  </span>
+                  <span className={`text-xs px-1.5 py-0.5 rounded ${t.is_active ? 'bg-green-50 text-green-700' : 'bg-neutral-100 text-neutral-500'}`}>
+                    {t.is_active ? 'Activa' : 'Inactiva'}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="flex gap-3 pt-4">
         <Link

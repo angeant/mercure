@@ -4,9 +4,10 @@ import { useState, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { SHIPMENT_STATUS_LABELS } from "@/lib/types";
 import { timeAgo } from "@/lib/utils";
-import { ChevronDown, ChevronUp, Package, FileText, Pencil, Image as ImageIcon, X, Search, ArrowUpDown } from "lucide-react";
+import { ChevronDown, ChevronUp, Package, FileText, Pencil, Image as ImageIcon, X, Search, ArrowUpDown, ChevronLeft, ChevronRight, Calendar } from "lucide-react";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
+import { useRouter, useSearchParams } from "next/navigation";
 
 type Shipment = {
   id: number;
@@ -36,36 +37,77 @@ function getStatusVariant(status: string): "default" | "success" | "warning" | "
   }
 }
 
-export function ShipmentList({ shipments }: { shipments: Shipment[] }) {
+interface ShipmentListProps {
+  shipments: Shipment[];
+  totalCount: number;
+  currentPage: number;
+  pageSize: number;
+  filters: {
+    search?: string;
+    status?: string;
+    dateFrom?: string;
+    dateTo?: string;
+  };
+}
+
+export function ShipmentList({ shipments, totalCount, currentPage, pageSize, filters }: ShipmentListProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  
   const [expanded, setExpanded] = useState<number | null>(null);
   const [imageModal, setImageModal] = useState<{ url: string; title: string } | null>(null);
   
-  // Filtros y ordenamiento
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  // Filtros locales (sincronizados con URL)
+  const [searchTerm, setSearchTerm] = useState(filters.search || '');
+  const [statusFilter, setStatusFilter] = useState(filters.status || 'all');
+  const [dateFrom, setDateFrom] = useState(filters.dateFrom || '');
+  const [dateTo, setDateTo] = useState(filters.dateTo || '');
+  
+  // Ordenamiento local
   const [sortField, setSortField] = useState<SortField>('created_at');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
-  // Aplicar filtros y ordenamiento
-  const filteredAndSortedShipments = useMemo(() => {
-    let result = [...shipments];
+  // Calcular total de páginas
+  const totalPages = Math.ceil(totalCount / pageSize);
+
+  // Aplicar filtros (navegar con nuevos params)
+  const applyFilters = (newFilters?: Partial<typeof filters>, page?: number) => {
+    const params = new URLSearchParams();
     
-    // Filtro por texto (remito, remitente, destinatario)
-    if (searchTerm.trim()) {
-      const term = searchTerm.toLowerCase();
-      result = result.filter(s => 
-        (s.delivery_note_number?.toLowerCase().includes(term)) ||
-        (s.sender?.legal_name?.toLowerCase().includes(term)) ||
-        (s.recipient?.legal_name?.toLowerCase().includes(term))
-      );
+    const search = newFilters?.search ?? searchTerm;
+    const status = newFilters?.status ?? statusFilter;
+    const from = newFilters?.dateFrom ?? dateFrom;
+    const to = newFilters?.dateTo ?? dateTo;
+    const p = page ?? 1;
+    
+    if (search) params.set('search', search);
+    if (status && status !== 'all') params.set('status', status);
+    if (from) params.set('from', from);
+    if (to) params.set('to', to);
+    if (p > 1) params.set('page', p.toString());
+    
+    router.push(`/recepcion${params.toString() ? '?' + params.toString() : ''}`);
+  };
+
+  // Debounce para búsqueda
+  const handleSearchChange = (value: string) => {
+    setSearchTerm(value);
+  };
+
+  const handleSearchSubmit = () => {
+    applyFilters({ search: searchTerm });
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSearchSubmit();
     }
+  };
+
+  // Ordenamiento local (no afecta server)
+  const sortedShipments = useMemo(() => {
+    const result = [...shipments];
     
-    // Filtro por estado
-    if (statusFilter !== 'all') {
-      result = result.filter(s => s.status === statusFilter);
-    }
-    
-    // Ordenamiento
     result.sort((a, b) => {
       let comparison = 0;
       switch (sortField) {
@@ -89,7 +131,7 @@ export function ShipmentList({ shipments }: { shipments: Shipment[] }) {
     });
     
     return result;
-  }, [shipments, searchTerm, statusFilter, sortField, sortDirection]);
+  }, [shipments, sortField, sortDirection]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -107,87 +149,194 @@ export function ShipmentList({ shipments }: { shipments: Shipment[] }) {
       : <ChevronDown className="w-3 h-3 text-orange-500" />;
   };
 
-  // Calcular total del flete (de los filtrados)
-  const totalFlete = filteredAndSortedShipments.reduce((sum, s) => {
+  // Calcular total del flete (de los mostrados)
+  const totalFlete = sortedShipments.reduce((sum, s) => {
     const price = s.quotation?.total_price || 0;
     return sum + Number(price);
   }, 0);
 
   // Obtener estados únicos para el filtro
-  const uniqueStatuses = [...new Set(shipments.map(s => s.status))];
+  const statuses = ['received', 'in_warehouse', 'ingresada', 'pending', 'draft'];
 
-  if (shipments.length === 0) {
-    return (
-      <div className="px-3 py-8 text-center text-neutral-400 border border-neutral-200 rounded">
-        Sin mercadería pendiente
-      </div>
-    );
-  }
+  // Limpiar filtros
+  const clearFilters = () => {
+    setSearchTerm('');
+    setStatusFilter('all');
+    setDateFrom('');
+    setDateTo('');
+    router.push('/recepcion');
+  };
+
+  const hasActiveFilters = searchTerm || statusFilter !== 'all' || dateFrom || dateTo;
 
   return (
     <>
       {/* Barra de filtros */}
-      <div className="flex flex-col sm:flex-row gap-2 mb-3">
-        {/* Búsqueda */}
-        <div className="relative flex-1">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
-          <Input
-            placeholder="Buscar remito, remitente o destinatario..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="h-8 pl-8 text-sm"
-          />
+      <div className="flex flex-col gap-2 mb-3">
+        {/* Primera fila: búsqueda y estado */}
+        <div className="flex flex-col sm:flex-row gap-2">
+          {/* Búsqueda */}
+          <div className="relative flex-1">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
+            <Input
+              placeholder="Buscar remito, remitente o destinatario..."
+              value={searchTerm}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onBlur={handleSearchSubmit}
+              className="h-8 pl-8 text-sm"
+            />
+          </div>
+          
+          {/* Filtro de estado */}
+          <select
+            value={statusFilter}
+            onChange={(e) => {
+              setStatusFilter(e.target.value);
+              applyFilters({ status: e.target.value });
+            }}
+            className="h-8 px-2 text-sm border border-neutral-200 rounded bg-white focus:border-neutral-400 focus:outline-none"
+          >
+            <option value="all">Todos los estados</option>
+            {statuses.map(status => (
+              <option key={status} value={status}>
+                {SHIPMENT_STATUS_LABELS[status as keyof typeof SHIPMENT_STATUS_LABELS] || status}
+              </option>
+            ))}
+          </select>
         </div>
         
-        {/* Filtro de estado */}
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="h-8 px-2 text-sm border border-neutral-200 rounded bg-white focus:border-neutral-400 focus:outline-none"
-        >
-          <option value="all">Todos los estados</option>
-          {uniqueStatuses.map(status => (
-            <option key={status} value={status}>
-              {SHIPMENT_STATUS_LABELS[status as keyof typeof SHIPMENT_STATUS_LABELS] || status}
-            </option>
-          ))}
-        </select>
-        
-        {/* Ordenar (solo mobile) */}
-        <select
-          value={`${sortField}-${sortDirection}`}
-          onChange={(e) => {
-            const [field, dir] = e.target.value.split('-') as [SortField, SortDirection];
-            setSortField(field);
-            setSortDirection(dir);
-          }}
-          className="h-8 px-2 text-sm border border-neutral-200 rounded bg-white focus:border-neutral-400 focus:outline-none md:hidden"
-        >
-          <option value="created_at-desc">Más recientes</option>
-          <option value="created_at-asc">Más antiguos</option>
-          <option value="recipient-asc">Destinatario A-Z</option>
-          <option value="recipient-desc">Destinatario Z-A</option>
-          <option value="package_quantity-desc">Más bultos</option>
-          <option value="declared_value-desc">Mayor valor</option>
-        </select>
+        {/* Segunda fila: rango de fechas */}
+        <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
+          <div className="flex items-center gap-2 text-sm text-neutral-500">
+            <Calendar className="w-4 h-4" />
+            <span className="hidden sm:inline">Fecha:</span>
+          </div>
+          <div className="flex gap-2 flex-1">
+            <div className="flex items-center gap-1">
+              <span className="text-xs text-neutral-400">Desde</span>
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => {
+                  setDateFrom(e.target.value);
+                  applyFilters({ dateFrom: e.target.value });
+                }}
+                className="h-8 px-2 text-sm border border-neutral-200 rounded bg-white focus:border-neutral-400 focus:outline-none"
+              />
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-xs text-neutral-400">Hasta</span>
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(e) => {
+                  setDateTo(e.target.value);
+                  applyFilters({ dateTo: e.target.value });
+                }}
+                className="h-8 px-2 text-sm border border-neutral-200 rounded bg-white focus:border-neutral-400 focus:outline-none"
+              />
+            </div>
+          </div>
+          
+          {/* Limpiar filtros */}
+          {hasActiveFilters && (
+            <button
+              onClick={clearFilters}
+              className="h-8 px-3 text-xs text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100 rounded border border-neutral-200"
+            >
+              Limpiar filtros
+            </button>
+          )}
+          
+          {/* Ordenar (solo mobile) */}
+          <select
+            value={`${sortField}-${sortDirection}`}
+            onChange={(e) => {
+              const [field, dir] = e.target.value.split('-') as [SortField, SortDirection];
+              setSortField(field);
+              setSortDirection(dir);
+            }}
+            className="h-8 px-2 text-sm border border-neutral-200 rounded bg-white focus:border-neutral-400 focus:outline-none md:hidden"
+          >
+            <option value="created_at-desc">Más recientes</option>
+            <option value="created_at-asc">Más antiguos</option>
+            <option value="recipient-asc">Destinatario A-Z</option>
+            <option value="recipient-desc">Destinatario Z-A</option>
+            <option value="package_quantity-desc">Más bultos</option>
+            <option value="declared_value-desc">Mayor valor</option>
+          </select>
+        </div>
       </div>
       
-      {/* Contador de resultados */}
-      {(searchTerm || statusFilter !== 'all') && (
-        <p className="text-xs text-neutral-500 mb-2">
-          Mostrando {filteredAndSortedShipments.length} de {shipments.length} envíos
+      {/* Contador de resultados y paginación info */}
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-xs text-neutral-500">
+          {totalCount === 0 
+            ? 'Sin resultados' 
+            : `Mostrando ${((currentPage - 1) * pageSize) + 1}-${Math.min(currentPage * pageSize, totalCount)} de ${totalCount} envíos`
+          }
         </p>
-      )}
+        
+        {/* Paginación compacta (desktop) */}
+        {totalPages > 1 && (
+          <div className="hidden sm:flex items-center gap-1">
+            <button
+              onClick={() => applyFilters({}, currentPage - 1)}
+              disabled={currentPage <= 1}
+              className="h-7 w-7 flex items-center justify-center rounded border border-neutral-200 hover:bg-neutral-50 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            
+            {/* Números de página */}
+            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+              let pageNum: number;
+              if (totalPages <= 5) {
+                pageNum = i + 1;
+              } else if (currentPage <= 3) {
+                pageNum = i + 1;
+              } else if (currentPage >= totalPages - 2) {
+                pageNum = totalPages - 4 + i;
+              } else {
+                pageNum = currentPage - 2 + i;
+              }
+              
+              return (
+                <button
+                  key={pageNum}
+                  onClick={() => applyFilters({}, pageNum)}
+                  className={`h-7 w-7 flex items-center justify-center rounded text-xs font-medium ${
+                    currentPage === pageNum 
+                      ? 'bg-neutral-900 text-white' 
+                      : 'border border-neutral-200 hover:bg-neutral-50'
+                  }`}
+                >
+                  {pageNum}
+                </button>
+              );
+            })}
+            
+            <button
+              onClick={() => applyFilters({}, currentPage + 1)}
+              disabled={currentPage >= totalPages}
+              className="h-7 w-7 flex items-center justify-center rounded border border-neutral-200 hover:bg-neutral-50 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+      </div>
       
-      {filteredAndSortedShipments.length === 0 ? (
+      {sortedShipments.length === 0 ? (
         <div className="px-3 py-8 text-center text-neutral-400 border border-neutral-200 rounded">
-          No se encontraron envíos con esos filtros
+          {hasActiveFilters ? 'No se encontraron envíos con esos filtros' : 'Sin mercadería pendiente'}
         </div>
       ) : (
         <>
       {/* Mobile View - Cards compactas */}
       <div className="md:hidden space-y-2">
-        {filteredAndSortedShipments.map((s) => (
+        {sortedShipments.map((s) => (
           <div 
             key={s.id} 
             className="border border-neutral-200 rounded bg-white"
@@ -367,7 +516,7 @@ export function ShipmentList({ shipments }: { shipments: Shipment[] }) {
               </tr>
             </thead>
             <tbody>
-              {filteredAndSortedShipments.map((s) => (
+              {sortedShipments.map((s) => (
                 <tr key={s.id} className="border-b border-neutral-100 last:border-0 hover:bg-neutral-50">
                   <td className="px-2 py-1">
                     <div className="flex items-center justify-center gap-1">
@@ -441,7 +590,7 @@ export function ShipmentList({ shipments }: { shipments: Shipment[] }) {
             <tfoot>
               <tr className="bg-neutral-100 border-t border-neutral-300">
                 <td colSpan={8} className="px-3 py-2 text-right text-sm font-bold text-neutral-700">
-                  TOTAL FLETE
+                  TOTAL FLETE (página)
                 </td>
                 <td className="px-3 py-2 text-right text-sm font-bold text-neutral-900">
                   ${totalFlete.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
@@ -452,6 +601,33 @@ export function ShipmentList({ shipments }: { shipments: Shipment[] }) {
           </table>
         </div>
       </div>
+      
+      {/* Paginación mobile */}
+      {totalPages > 1 && (
+        <div className="flex sm:hidden items-center justify-center gap-2 mt-4">
+          <button
+            onClick={() => applyFilters({}, currentPage - 1)}
+            disabled={currentPage <= 1}
+            className="h-9 px-4 flex items-center gap-1 rounded border border-neutral-200 hover:bg-neutral-50 disabled:opacity-40 disabled:cursor-not-allowed text-sm"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            Anterior
+          </button>
+          
+          <span className="text-sm text-neutral-600 px-2">
+            {currentPage} / {totalPages}
+          </span>
+          
+          <button
+            onClick={() => applyFilters({}, currentPage + 1)}
+            disabled={currentPage >= totalPages}
+            className="h-9 px-4 flex items-center gap-1 rounded border border-neutral-200 hover:bg-neutral-50 disabled:opacity-40 disabled:cursor-not-allowed text-sm"
+          >
+            Siguiente
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+      )}
         </>
       )}
 
@@ -483,5 +659,3 @@ export function ShipmentList({ shipments }: { shipments: Shipment[] }) {
     </>
   );
 }
-
-

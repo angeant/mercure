@@ -4,24 +4,60 @@ import { supabaseAdmin } from "@/lib/supabase";
 import { requireAuth } from "@/lib/auth";
 import Link from "next/link";
 import { ShipmentList } from "./shipment-list";
+import { Suspense } from "react";
 
-async function getRecentShipments() {
-  // Primero obtener los shipments sin relaciones
-  const { data: shipments, error } = await supabaseAdmin!
+const PAGE_SIZE = 25;
+
+interface SearchParams {
+  search?: string;
+  status?: string;
+  from?: string;
+  to?: string;
+  page?: string;
+}
+
+async function getShipments(params: SearchParams) {
+  const page = parseInt(params.page || '1', 10);
+  const offset = (page - 1) * PAGE_SIZE;
+
+  // Base query
+  let query = supabaseAdmin!
     .schema('mercure')
     .from('shipments')
-    .select('*')
-    .in('status', ['received', 'in_warehouse', 'ingresada', 'pending', 'draft'])
+    .select('*', { count: 'exact' });
+
+  // Filtro por estado
+  if (params.status && params.status !== 'all') {
+    query = query.eq('status', params.status);
+  } else {
+    // Por defecto, mostrar solo estados de recepción
+    query = query.in('status', ['received', 'in_warehouse', 'ingresada', 'pending', 'draft']);
+  }
+
+  // Filtro por fecha desde
+  if (params.from) {
+    query = query.gte('created_at', `${params.from}T00:00:00`);
+  }
+
+  // Filtro por fecha hasta
+  if (params.to) {
+    query = query.lte('created_at', `${params.to}T23:59:59`);
+  }
+
+  // Ordenar y paginar
+  query = query
     .order('created_at', { ascending: false })
-    .limit(50);
-  
+    .range(offset, offset + PAGE_SIZE - 1);
+
+  const { data: shipments, error, count } = await query;
+
   if (error) {
     console.error("Error fetching shipments:", error);
-    return [];
+    return { shipments: [], totalCount: 0 };
   }
 
   if (!shipments || shipments.length === 0) {
-    return [];
+    return { shipments: [], totalCount: count || 0 };
   }
 
   // Obtener los IDs únicos de sender y recipient
@@ -48,18 +84,69 @@ async function getRecentShipments() {
   const quotationsMap = new Map((quotations || []).map(q => [q.id, q]));
 
   // Combinar datos
-  return shipments.map(s => ({
+  let result = shipments.map(s => ({
     ...s,
     sender: s.sender_id ? entitiesMap.get(s.sender_id) || null : null,
     recipient: s.recipient_id ? entitiesMap.get(s.recipient_id) || null : null,
     quotation: s.quotation_id ? quotationsMap.get(s.quotation_id) || null : null,
   }));
+
+  // Filtro de búsqueda (client-side ya que es texto libre)
+  if (params.search) {
+    const term = params.search.toLowerCase();
+    result = result.filter(s =>
+      (s.delivery_note_number?.toLowerCase().includes(term)) ||
+      (s.sender?.legal_name?.toLowerCase().includes(term)) ||
+      (s.recipient?.legal_name?.toLowerCase().includes(term))
+    );
+  }
+
+  return { shipments: result, totalCount: count || 0 };
 }
 
-export default async function RecepcionPage() {
-  await requireAuth("/recepcion");
+function LoadingState() {
+  return (
+    <div className="animate-pulse">
+      <div className="flex flex-col sm:flex-row gap-2 mb-3">
+        <div className="h-8 bg-neutral-100 rounded flex-1"></div>
+        <div className="h-8 w-40 bg-neutral-100 rounded"></div>
+      </div>
+      <div className="h-8 bg-neutral-100 rounded mb-3 w-64"></div>
+      <div className="border border-neutral-200 rounded p-8 text-center text-neutral-400">
+        Cargando envíos...
+      </div>
+    </div>
+  );
+}
 
-  const shipments = await getRecentShipments();
+async function ShipmentListWrapper({ searchParams }: { searchParams: SearchParams }) {
+  const { shipments, totalCount } = await getShipments(searchParams);
+  const currentPage = parseInt(searchParams.page || '1', 10);
+
+  return (
+    <ShipmentList
+      shipments={shipments}
+      totalCount={totalCount}
+      currentPage={currentPage}
+      pageSize={PAGE_SIZE}
+      filters={{
+        search: searchParams.search,
+        status: searchParams.status,
+        dateFrom: searchParams.from,
+        dateTo: searchParams.to,
+      }}
+    />
+  );
+}
+
+export default async function RecepcionPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
+  await requireAuth("/recepcion");
+  
+  const params = await searchParams;
 
   return (
     <div className="min-h-screen bg-white">
@@ -69,9 +156,6 @@ export default async function RecepcionPage() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-neutral-200 pb-3 mb-4 gap-2">
             <div>
               <h1 className="text-lg font-medium text-neutral-900">Recepción</h1>
-              <p className="text-xs text-neutral-500 md:hidden">
-                {shipments.length} envío{shipments.length !== 1 ? 's' : ''} pendiente{shipments.length !== 1 ? 's' : ''}
-              </p>
             </div>
             <Link href="/recepcion/nueva">
               <Button className="h-8 px-3 text-sm bg-orange-500 hover:bg-orange-600 text-white rounded w-full sm:w-auto">
@@ -80,7 +164,9 @@ export default async function RecepcionPage() {
             </Link>
           </div>
 
-          <ShipmentList shipments={shipments} />
+          <Suspense fallback={<LoadingState />}>
+            <ShipmentListWrapper searchParams={params} />
+          </Suspense>
         </div>
       </main>
     </div>

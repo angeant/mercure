@@ -6,6 +6,7 @@ interface CreateEntityRequest {
   tax_id?: string;
   entity_type?: string;
   payment_terms?: string;
+  delivery_type?: string;
   email?: string;
   phone?: string;
   address?: string;
@@ -118,6 +119,7 @@ export async function PUT(request: NextRequest) {
           tax_id: entityData.tax_id || null,
           entity_type: entityData.entity_type || null,
           payment_terms: entityData.payment_terms || null,
+          delivery_type: entityData.delivery_type || 'deposito',
           email: entityData.email || null,
           phone: entityData.phone || null,
           address: entityData.address || null,
@@ -196,6 +198,7 @@ export async function POST(request: NextRequest) {
         tax_id: body.tax_id || null,
         entity_type: body.entity_type || null,
         payment_terms: body.payment_terms || null,
+        delivery_type: body.delivery_type || 'deposito',
         email: body.email || null,
         phone: body.phone || null,
         address: body.address || null,

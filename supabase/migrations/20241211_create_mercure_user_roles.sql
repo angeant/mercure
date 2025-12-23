@@ -88,3 +88,5 @@ COMMENT ON COLUMN public.mercure_user_roles.is_active IS 'Si el rol está activo
 
 
 
+
+

@@ -215,10 +215,22 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('Error en /api/afip/factura-nueva:', error);
+    
+    // Detectar errores de conexión específicos
+    const errorMessage = error instanceof Error ? error.message : 'Error interno';
+    let userMessage = errorMessage;
+    
+    if (errorMessage.includes('fetch failed') || errorMessage.includes('ECONNREFUSED') || errorMessage.includes('ETIMEDOUT')) {
+      userMessage = 'Error de conexión con AFIP. El servicio puede estar temporalmente no disponible. Intente nuevamente en unos minutos.';
+    } else if (errorMessage.includes('WSAA')) {
+      userMessage = 'Error de autenticación con AFIP. Verifique los certificados o intente nuevamente.';
+    }
+    
     return NextResponse.json(
       { 
-        error: error instanceof Error ? error.message : 'Error interno',
-        stack: error instanceof Error ? error.stack : undefined,
+        error: userMessage,
+        details: errorMessage,
+        stack: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.stack : undefined) : undefined,
       },
       { status: 500 }
     );

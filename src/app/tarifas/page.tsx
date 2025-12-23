@@ -6,6 +6,7 @@ import { requireAuth } from "@/lib/auth";
 import Link from "next/link";
 import { TariffTable } from "./tariff-table";
 import { SpecialTariffsTable } from "./special-tariffs-table";
+import { TonnageTariffsTable } from "./tonnage-tariffs-table";
 
 async function getTariffs() {
   const { data } = await supabaseAdmin!
@@ -79,6 +80,9 @@ export default async function TarifasPage() {
 
           {/* Tarifas Especiales por Cliente */}
           <SpecialTariffsTable initialEntities={regularClients as any} />
+
+          {/* Tarifas por Tonelaje (+1000kg) */}
+          <TonnageTariffsTable />
 
           {/* Tarifas Base (colapsable) */}
           <details className="mb-6 group">

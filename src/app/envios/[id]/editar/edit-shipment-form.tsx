@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Save, Loader2, Calculator, Trash2, Upload, Image as ImageIcon, X } from "lucide-react";
+import { ArrowLeft, Save, Loader2, Calculator, Trash2, Upload, Image as ImageIcon, X, ChevronDown, ChevronUp, Info } from "lucide-react";
 import Link from "next/link";
 
 interface Entity {
@@ -43,6 +43,75 @@ interface EditShipmentFormProps {
   entities: Entity[];
 }
 
+// Tipos para debug de pricing
+interface DebugInfo {
+  input: {
+    weightKg: number;
+    volumeM3: number;
+    declaredValue: number;
+    origin: string;
+    destination: string;
+  };
+  decision: {
+    pesoReal: number;
+    pesoVolumetrico: number;
+    factorConversion: number;
+    pesoACobrar: number;
+    criterioUsado: 'PESO_REAL' | 'PESO_VOLUMETRICO' | 'VOLUMEN_DIRECTO';
+    explicacion: string;
+  };
+  tarifa: {
+    encontrada: boolean;
+    id?: number;
+    origen?: string;
+    destino?: string;
+    rangoKg?: string;
+    precioLista?: number;
+    queryUsada?: string;
+  };
+  calculo: {
+    fleteLista: number;
+    modificador?: number;
+    fleteConModificador: number;
+    valorDeclarado: number;
+    tasaSeguro: number;
+    seguro: number;
+    total: number;
+    formula: string;
+  };
+}
+
+interface SpecialTariff {
+  id: number;
+  name: string;
+  description: string | null;
+  matches: boolean;
+  matchReason?: string;
+}
+
+interface PricingResult {
+  path: 'A' | 'B' | 'C';
+  pathName: string;
+  tag: {
+    color: 'green' | 'yellow' | 'red';
+    label: string;
+    description: string;
+  };
+  pricing: {
+    source: string;
+    price: number | null;
+    breakdown?: Record<string, number>;
+  };
+  commercialTerms?: {
+    tariffType: string;
+    tariffModifier: number;
+    insuranceRate: number;
+  };
+  specialTariffs?: SpecialTariff[];
+  appliedSpecialTariff?: SpecialTariff;
+  debug?: DebugInfo;
+}
+
 export function EditShipmentForm({ shipment, entities }: EditShipmentFormProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -53,6 +122,8 @@ export function EditShipmentForm({ shipment, entities }: EditShipmentFormProps) 
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [quotation, setQuotation] = useState<QuotationData | null>(null);
   const [newQuotation, setNewQuotation] = useState<{ price: number; breakdown: Record<string, number> } | null>(null);
+  const [pricingResult, setPricingResult] = useState<PricingResult | null>(null);
+  const [showDebugPanel, setShowDebugPanel] = useState(false);
   const [manualPrice, setManualPrice] = useState<string>('');
   const [useManualPrice, setUseManualPrice] = useState(false);
   
@@ -113,6 +184,7 @@ export function EditShipmentForm({ shipment, entities }: EditShipmentFormProps) 
     setIsQuoting(true);
     setMessage(null);
     setNewQuotation(null);
+    setPricingResult(null);
 
     try {
       const response = await fetch('/api/detect-pricing', {
@@ -134,12 +206,17 @@ export function EditShipmentForm({ shipment, entities }: EditShipmentFormProps) 
 
       const result = await response.json();
       
+      // Guardar resultado completo para mostrar debug
+      setPricingResult(result);
+      
       if (result.pricing?.price > 0) {
         setNewQuotation({
           price: result.pricing.price,
           breakdown: result.pricing.breakdown || {},
         });
         setMessage({ type: 'success', text: `Nuevo precio: $${result.pricing.price.toLocaleString('es-AR', { minimumFractionDigits: 2 })}` });
+        // Mostrar panel de debug automáticamente
+        setShowDebugPanel(true);
       } else {
         setMessage({ type: 'error', text: 'No se pudo calcular el precio. Verificá peso/volumen.' });
       }
@@ -486,6 +563,161 @@ export function EditShipmentForm({ shipment, entities }: EditShipmentFormProps) 
               </div>
             ) : null}
           </div>
+          
+          {/* Panel de Debug - Regla y Fórmula utilizada */}
+          {pricingResult && (
+            <div className="mt-3 pt-3 border-t border-neutral-200">
+              {/* Header con tag y toggle */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className={`text-xs font-medium px-2 py-0.5 rounded ${
+                    pricingResult.tag.color === 'green' 
+                      ? 'bg-green-100 text-green-800' 
+                      : pricingResult.tag.color === 'yellow'
+                      ? 'bg-yellow-100 text-yellow-800'
+                      : 'bg-red-100 text-red-800'
+                  }`}>
+                    {pricingResult.tag.label}
+                  </span>
+                  <span className="text-xs text-neutral-600">
+                    {pricingResult.pathName}
+                  </span>
+                  {pricingResult.appliedSpecialTariff && (
+                    <span className="text-xs px-1.5 py-0.5 bg-orange-100 text-orange-700 rounded">
+                      ⭐ {pricingResult.appliedSpecialTariff.name}
+                    </span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowDebugPanel(!showDebugPanel)}
+                  className="flex items-center gap-1 text-xs text-neutral-500 hover:text-neutral-700"
+                >
+                  <Info className="w-3 h-3" />
+                  {showDebugPanel ? 'Ocultar' : 'Ver'} fórmula
+                  {showDebugPanel ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                </button>
+              </div>
+              
+              {/* Descripción del tag */}
+              <p className="text-xs text-neutral-500 mt-1">
+                {pricingResult.tag.description}
+              </p>
+              
+              {/* Panel de debug expandido */}
+              {showDebugPanel && pricingResult.debug && (
+                <div className="mt-3 space-y-3 text-xs">
+                  {/* Decisión de peso */}
+                  <div className="bg-white p-2 rounded border border-neutral-200">
+                    <div className="font-medium text-neutral-700 mb-1">📐 Decisión de peso:</div>
+                    <div className="text-neutral-600 mb-2">{pricingResult.debug.decision.explicacion}</div>
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div className={`p-1 rounded ${pricingResult.debug.decision.criterioUsado === 'PESO_REAL' ? 'bg-green-100 text-green-800 font-medium' : 'bg-neutral-100'}`}>
+                        <div className="text-[10px] uppercase">Peso Real</div>
+                        <div className="font-mono">{pricingResult.debug.decision.pesoReal} kg</div>
+                      </div>
+                      <div className={`p-1 rounded ${pricingResult.debug.decision.criterioUsado === 'PESO_VOLUMETRICO' ? 'bg-green-100 text-green-800 font-medium' : 'bg-neutral-100'}`}>
+                        <div className="text-[10px] uppercase">Peso Volum.</div>
+                        <div className="font-mono">{pricingResult.debug.decision.pesoVolumetrico.toFixed(1)} kg</div>
+                      </div>
+                      <div className="p-1 rounded bg-blue-100 text-blue-800 font-medium">
+                        <div className="text-[10px] uppercase">→ A Cobrar</div>
+                        <div className="font-mono">{pricingResult.debug.decision.pesoACobrar} kg</div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Tarifa encontrada */}
+                  <div className="bg-white p-2 rounded border border-neutral-200">
+                    <div className="font-medium text-neutral-700 mb-1">📋 Tarifa:</div>
+                    {pricingResult.debug.tarifa.encontrada ? (
+                      <div className="space-y-1">
+                        <div className="flex justify-between">
+                          <span>Ruta:</span>
+                          <span className="font-medium">{pricingResult.debug.tarifa.origen} → {pricingResult.debug.tarifa.destino}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Rango:</span>
+                          <span className="font-mono">{pricingResult.debug.tarifa.rangoKg} kg</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Precio lista:</span>
+                          <span className="font-mono font-medium">${pricingResult.debug.tarifa.precioLista?.toLocaleString('es-AR')}</span>
+                        </div>
+                        {pricingResult.debug.tarifa.queryUsada && (
+                          <div className="text-[10px] text-neutral-400 mt-1 p-1 bg-neutral-50 rounded font-mono">
+                            {pricingResult.debug.tarifa.queryUsada}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-red-600">
+                        ⚠️ No se encontró tarifa específica
+                        {pricingResult.debug.tarifa.queryUsada && (
+                          <div className="text-[10px] text-neutral-400 mt-1 p-1 bg-neutral-50 rounded font-mono">
+                            {pricingResult.debug.tarifa.queryUsada}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Fórmula y cálculo */}
+                  <div className="bg-white p-2 rounded border border-neutral-200">
+                    <div className="font-medium text-neutral-700 mb-1">🧮 Fórmula aplicada:</div>
+                    <div className="p-2 bg-blue-50 text-blue-800 rounded font-mono text-[11px] break-words">
+                      {pricingResult.debug.calculo.formula}
+                    </div>
+                    <div className="mt-2 grid grid-cols-2 gap-2 text-[11px]">
+                      <div className="flex justify-between">
+                        <span>Flete lista:</span>
+                        <span className="font-mono">${pricingResult.debug.calculo.fleteLista.toLocaleString('es-AR')}</span>
+                      </div>
+                      {pricingResult.debug.calculo.modificador !== undefined && (
+                        <div className="flex justify-between">
+                          <span>Modificador:</span>
+                          <span className={`font-mono ${pricingResult.debug.calculo.modificador < 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            {pricingResult.debug.calculo.modificador}%
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex justify-between">
+                        <span>Seguro ({(pricingResult.debug.calculo.tasaSeguro * 1000).toFixed(0)}‰):</span>
+                        <span className="font-mono">${pricingResult.debug.calculo.seguro.toLocaleString('es-AR')}</span>
+                      </div>
+                      <div className="flex justify-between font-bold">
+                        <span>TOTAL:</span>
+                        <span className="font-mono">${pricingResult.debug.calculo.total.toLocaleString('es-AR')}</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Términos comerciales si existen */}
+                  {pricingResult.commercialTerms && (
+                    <div className="bg-white p-2 rounded border border-neutral-200">
+                      <div className="font-medium text-neutral-700 mb-1">📄 Condiciones comerciales:</div>
+                      <div className="grid grid-cols-2 gap-2 text-[11px]">
+                        <div className="flex justify-between">
+                          <span>Tipo tarifa:</span>
+                          <span className="font-medium">{pricingResult.commercialTerms.tariffType}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Modificador:</span>
+                          <span className={`font-mono ${pricingResult.commercialTerms.tariffModifier < 0 ? 'text-green-600' : pricingResult.commercialTerms.tariffModifier > 0 ? 'text-red-600' : ''}`}>
+                            {pricingResult.commercialTerms.tariffModifier}%
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Tasa seguro:</span>
+                          <span className="font-mono">{(pricingResult.commercialTerms.insuranceRate * 1000).toFixed(1)}‰</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Pago */}

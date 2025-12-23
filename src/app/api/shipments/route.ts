@@ -39,6 +39,14 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     const { shipmentId, updateData, newQuotation, entities } = body;
 
+    console.log('[PUT /api/shipments] Received:', {
+      shipmentId,
+      hasNewQuotation: !!newQuotation,
+      newQuotationPrice: newQuotation?.price,
+      newQuotationIsManual: newQuotation?.isManual,
+      entitiesCount: entities?.length,
+    });
+
     if (!shipmentId) {
       return NextResponse.json({ error: 'shipmentId is required' }, { status: 400 });
     }
@@ -60,7 +68,16 @@ export async function PUT(request: NextRequest) {
 
     // Si hay nueva cotización, crearla
     if (newQuotation && newQuotation.price > 0) {
+      console.log('[PUT /api/shipments] Creating quotation with price:', newQuotation.price);
+      
       const recipient = entities?.find((e: any) => e.id.toString() === updateData.recipient_id);
+      console.log('[PUT /api/shipments] Found recipient:', recipient?.legal_name || 'NOT FOUND');
+      
+      // Calcular peso cobrado: el mayor entre peso real y peso volumétrico (m³ * 300)
+      const weightKg = updateData.weight_kg ? parseFloat(updateData.weight_kg) : 0;
+      const volumeM3 = updateData.volume_m3 ? parseFloat(updateData.volume_m3) : 0;
+      const volumetricWeight = volumeM3 * 300;
+      const chargeableWeight = newQuotation.breakdown?.peso_cobrado || Math.max(weightKg, volumetricWeight) || weightKg || 1;
       
       const { data: newQuot, error: quotError } = await supabaseAdmin
         .schema('mercure')
@@ -72,10 +89,10 @@ export async function PUT(request: NextRequest) {
           customer_cuit: recipient?.tax_id || null,
           origin: 'Buenos Aires',
           destination: 'Jujuy',
-          weight_kg: updateData.weight_kg ? parseFloat(updateData.weight_kg) : 0,
-          volume_m3: updateData.volume_m3 ? parseFloat(updateData.volume_m3) : 0,
-          volumetric_weight_kg: newQuotation.breakdown?.peso_volumetrico || null,
-          chargeable_weight_kg: newQuotation.breakdown?.peso_cobrado || null,
+          weight_kg: weightKg,
+          volume_m3: volumeM3,
+          volumetric_weight_kg: newQuotation.breakdown?.peso_volumetrico || volumetricWeight,
+          chargeable_weight_kg: chargeableWeight,
           insurance_value: updateData.declared_value ? parseFloat(updateData.declared_value) : 0,
           base_price: newQuotation.isManual ? newQuotation.price : (newQuotation.breakdown?.flete_final || newQuotation.price),
           insurance_cost: newQuotation.isManual ? 0 : (newQuotation.breakdown?.seguro || 0),
@@ -88,9 +105,16 @@ export async function PUT(request: NextRequest) {
         .select('id')
         .single();
 
+      if (quotError) {
+        console.error('[PUT /api/shipments] Error creating quotation:', quotError);
+      }
+
       if (!quotError && newQuot) {
+        console.log('[PUT /api/shipments] Quotation created:', newQuot.id);
         finalUpdateData.quotation_id = newQuot.id;
       }
+    } else {
+      console.log('[PUT /api/shipments] No quotation to create. newQuotation:', newQuotation);
     }
 
     const { error } = await supabaseAdmin
@@ -220,4 +244,6 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+
 

@@ -67,3 +67,5 @@ ON CONFLICT (identifier) DO UPDATE SET
   max_weight_kg = EXCLUDED.max_weight_kg,
   has_thermal_control = EXCLUDED.has_thermal_control;
 
+
+

@@ -74,3 +74,5 @@ COMMENT ON COLUMN public.mercure_audit_logs.old_value IS 'Valor anterior (para u
 COMMENT ON COLUMN public.mercure_audit_logs.new_value IS 'Nuevo valor (para creates/updates)';
 
 
+
+

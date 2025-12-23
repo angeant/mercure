@@ -59,6 +59,7 @@ export async function POST(request: NextRequest) {
       priority,
       notes,
       created_by,
+      insurance_rate,
     } = body;
 
     // Validaciones básicas
@@ -88,6 +89,7 @@ export async function POST(request: NextRequest) {
         priority: priority || 0,
         notes,
         created_by,
+        insurance_rate,
       })
       .select()
       .single();
@@ -167,4 +169,6 @@ export async function DELETE(request: NextRequest) {
 
   return NextResponse.json({ success: true });
 }
+
+
 

@@ -27,6 +27,7 @@ interface ReceptionData {
   recipientId: number | null;
   date: string;
   origin: string; // Origen del envío
+  destination: string; // Destino del envío
   packageQuantity: string;
   weightKg: string;
   volumeM3: string;
@@ -214,6 +215,8 @@ export async function POST(request: NextRequest) {
         sender_id: senderId,
         recipient_id: recipientId,
         recipient_address: data.recipientAddress?.trim() || null,
+        origin: data.origin || 'Buenos Aires',
+        destination: data.destination || 'Jujuy',
         load_description: data.loadDescription?.trim() || null,
         package_quantity: data.packageQuantity ? parseInt(data.packageQuantity) : null,
         weight_kg: data.weightKg ? parseFloat(data.weightKg) : null,
@@ -260,7 +263,9 @@ export async function POST(request: NextRequest) {
         const volumeM3 = data.volumeM3 ? parseFloat(data.volumeM3) : 0;
         const declaredValue = data.declaredValue ? parseFloat(data.declaredValue) : 0;
         
-        const pricingResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/detect-pricing`, {
+        // Usar el origin del request para construir la URL correcta
+        const baseUrl = request.nextUrl.origin;
+        const pricingResponse = await fetch(`${baseUrl}/api/detect-pricing`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -271,7 +276,7 @@ export async function POST(request: NextRequest) {
               declaredValue,
             },
             origin: data.origin || 'Buenos Aires',
-            destination: 'San Salvador de Jujuy', // Nombre completo para match con tarifas
+            destination: data.destination || 'Jujuy',
           }),
         });
 
@@ -291,7 +296,7 @@ export async function POST(request: NextRequest) {
                 customer_name: data.recipientName,
                 customer_cuit: data.recipientCuit || null,
                 origin: data.origin || 'Buenos Aires',
-                destination: 'San Salvador de Jujuy',
+                destination: data.destination || 'Jujuy',
                 weight_kg: weightKg,
                 volume_m3: volumeM3,
                 volumetric_weight_kg: pricing.breakdown?.peso_volumetrico || null,

@@ -29,6 +29,7 @@ interface SpecialTariff {
   is_active: boolean;
   priority: number;
   notes: string | null;
+  insurance_rate: number | null;
   entity?: Entity;
 }
 
@@ -43,8 +44,12 @@ const CONDITION_TYPES = [
 const PRICING_TYPES = [
   { value: 'fijo', label: 'Precio fijo' },
   { value: 'por_kg', label: 'Precio por kg' },
-  { value: 'descuento_porcentaje', label: 'Descuento %' },
+  { value: 'por_m3', label: 'Precio por m³' },
+  { value: 'por_pallet', label: 'Precio por pallet' },
+  { value: 'por_bulto', label: 'Precio por bulto' },
+  { value: 'descuento_porcentaje', label: 'Descuento % (sobre M3)' },
   { value: 'descuento_monto', label: 'Descuento $' },
+  { value: 'formula_custom', label: 'Fórmula personalizada' },
 ];
 
 export function SpecialTariffsTable({ initialEntities }: { initialEntities: Entity[] }) {
@@ -63,10 +68,12 @@ export function SpecialTariffsTable({ initialEntities }: { initialEntities: Enti
     condition_value: '',
     pricing_type: 'fijo',
     pricing_value: '',
+    pricing_value_2: '', // Para campos adicionales (ej: precio_m3 en descuento_porcentaje)
     origin: '',
     destination: '',
     priority: '0',
     notes: '',
+    insurance_rate: '', // Tasa de seguro personalizada (vacío = default, 0 = sin seguro)
   });
 
   // Fetch tariffs
@@ -110,11 +117,28 @@ export function SpecialTariffsTable({ initialEntities }: { initialEntities: Enti
         pricing_values = { precio: parseFloat(form.pricing_value) };
       } else if (form.pricing_type === 'por_kg' && form.pricing_value) {
         pricing_values = { precio_kg: parseFloat(form.pricing_value) };
+      } else if (form.pricing_type === 'por_m3' && form.pricing_value) {
+        pricing_values = { precio_m3: parseFloat(form.pricing_value) };
+      } else if (form.pricing_type === 'por_pallet' && form.pricing_value) {
+        pricing_values = { precio_pallet: parseFloat(form.pricing_value) };
+      } else if (form.pricing_type === 'por_bulto' && form.pricing_value) {
+        pricing_values = { 
+          precio_bulto: parseFloat(form.pricing_value),
+          tipo_producto: form.pricing_value_2 || 'bulto'
+        };
       } else if (form.pricing_type === 'descuento_porcentaje' && form.pricing_value) {
-        pricing_values = { porcentaje: -Math.abs(parseFloat(form.pricing_value)) };
+        pricing_values = { 
+          porcentaje: -Math.abs(parseFloat(form.pricing_value)),
+          precio_m3: form.pricing_value_2 ? parseFloat(form.pricing_value_2) : undefined
+        };
       } else if (form.pricing_type === 'descuento_monto' && form.pricing_value) {
         pricing_values = { monto: -Math.abs(parseFloat(form.pricing_value)) };
+      } else if (form.pricing_type === 'formula_custom' && form.pricing_value) {
+        pricing_values = { formula: form.pricing_value };
       }
+
+      // Insurance rate
+      const insuranceRate = form.insurance_rate === '' ? null : parseFloat(form.insurance_rate) / 1000;
 
       const res = await fetch('/api/special-tariffs', {
         method: 'POST',
@@ -131,6 +155,7 @@ export function SpecialTariffsTable({ initialEntities }: { initialEntities: Enti
           destination: form.destination || null,
           priority: parseInt(form.priority) || 0,
           notes: form.notes || null,
+          insurance_rate: insuranceRate,
         }),
       });
 
@@ -144,10 +169,12 @@ export function SpecialTariffsTable({ initialEntities }: { initialEntities: Enti
           condition_value: '',
           pricing_type: 'fijo',
           pricing_value: '',
+          pricing_value_2: '',
           origin: '',
           destination: '',
           priority: '0',
           notes: '',
+          insurance_rate: '',
         });
         fetchTariffs();
       }
@@ -210,13 +237,33 @@ export function SpecialTariffsTable({ initialEntities }: { initialEntities: Enti
         return `$${(pv.precio || 0).toLocaleString('es-AR')}`;
       case 'por_kg':
         return `$${pv.precio_kg}/kg`;
+      case 'por_m3':
+        return `$${(pv.precio_m3 || 0).toLocaleString('es-AR')}/m³`;
+      case 'por_pallet':
+        return `$${(pv.precio_pallet || 0).toLocaleString('es-AR')}/pallet`;
+      case 'por_bulto':
+        return `$${(pv.precio_bulto || 0).toLocaleString('es-AR')}/${pv.tipo_producto || 'bulto'}`;
       case 'descuento_porcentaje':
-        return `${pv.porcentaje}%`;
+        return pv.precio_m3 
+          ? `M³×$${pv.precio_m3.toLocaleString('es-AR')} ${pv.porcentaje}%`
+          : `${pv.porcentaje}%`;
       case 'descuento_monto':
         return `-$${Math.abs(pv.monto || 0).toLocaleString('es-AR')}`;
+      case 'formula_custom':
+        return pv.formula || 'Fórmula';
       default:
         return '-';
     }
+  };
+  
+  const formatInsurance = (tariff: SpecialTariff) => {
+    if (tariff.insurance_rate === null || tariff.insurance_rate === undefined) {
+      return null; // Usa default
+    }
+    if (tariff.insurance_rate === 0) {
+      return 'Sin seguro';
+    }
+    return `${(tariff.insurance_rate * 1000).toFixed(0)}‰`;
   };
 
   // Agrupar por cliente
@@ -359,19 +406,89 @@ export function SpecialTariffsTable({ initialEntities }: { initialEntities: Enti
                     <Label className="text-xs mb-1 block">
                       {form.pricing_type === 'fijo' && 'Precio ($)'}
                       {form.pricing_type === 'por_kg' && 'Precio/kg ($)'}
+                      {form.pricing_type === 'por_m3' && 'Precio/m³ ($)'}
+                      {form.pricing_type === 'por_pallet' && 'Precio/pallet ($)'}
+                      {form.pricing_type === 'por_bulto' && 'Precio/bulto ($)'}
                       {form.pricing_type === 'descuento_porcentaje' && 'Descuento (%)'}
                       {form.pricing_type === 'descuento_monto' && 'Descuento ($)'}
+                      {form.pricing_type === 'formula_custom' && 'Fórmula (kg * X - m3 * Y)'}
                     </Label>
                     <Input
-                      type="number"
+                      type={form.pricing_type === 'formula_custom' ? 'text' : 'number'}
                       value={form.pricing_value}
                       onChange={(e) => setForm({ ...form, pricing_value: e.target.value })}
                       className="h-8 text-sm"
-                      placeholder="0"
+                      placeholder={form.pricing_type === 'formula_custom' ? 'kg * 96.8 - m3 * 48400' : '0'}
                       required
                     />
                   </div>
                 </div>
+
+                {/* Campos adicionales según tipo de pricing */}
+                {(form.pricing_type === 'por_bulto' || form.pricing_type === 'descuento_porcentaje') && (
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                    {form.pricing_type === 'por_bulto' && (
+                      <div>
+                        <Label className="text-xs mb-1 block">Tipo de producto</Label>
+                        <Input
+                          value={form.pricing_value_2}
+                          onChange={(e) => setForm({ ...form, pricing_value_2: e.target.value })}
+                          className="h-8 text-sm"
+                          placeholder="rollo_tela, caja, etc."
+                        />
+                      </div>
+                    )}
+                    {form.pricing_type === 'descuento_porcentaje' && (
+                      <div>
+                        <Label className="text-xs mb-1 block">Precio base M³ ($)</Label>
+                        <Input
+                          type="number"
+                          value={form.pricing_value_2}
+                          onChange={(e) => setForm({ ...form, pricing_value_2: e.target.value })}
+                          className="h-8 text-sm"
+                          placeholder="65000"
+                        />
+                        <p className="text-[10px] text-neutral-400 mt-0.5">
+                          Si vacío, usa tarifa base
+                        </p>
+                      </div>
+                    )}
+                    <div>
+                      <Label className="text-xs mb-1 block">Tasa seguro (‰)</Label>
+                      <Input
+                        type="number"
+                        value={form.insurance_rate}
+                        onChange={(e) => setForm({ ...form, insurance_rate: e.target.value })}
+                        className="h-8 text-sm"
+                        placeholder="8"
+                        step="0.1"
+                      />
+                      <p className="text-[10px] text-neutral-400 mt-0.5">
+                        Vacío=default, 0=sin seguro
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Tasa de seguro para otros tipos */}
+                {!['por_bulto', 'descuento_porcentaje'].includes(form.pricing_type) && (
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                    <div>
+                      <Label className="text-xs mb-1 block">Tasa seguro (‰)</Label>
+                      <Input
+                        type="number"
+                        value={form.insurance_rate}
+                        onChange={(e) => setForm({ ...form, insurance_rate: e.target.value })}
+                        className="h-8 text-sm"
+                        placeholder="8"
+                        step="0.1"
+                      />
+                      <p className="text-[10px] text-neutral-400 mt-0.5">
+                        Vacío=default (8‰), 0=sin seguro
+                      </p>
+                    </div>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
@@ -464,8 +581,13 @@ export function SpecialTariffsTable({ initialEntities }: { initialEntities: Enti
                           {formatCondition(t)}
                         </Badge>
                       </td>
-                      <td className="px-3 py-2 font-mono font-medium">
-                        {formatPricing(t)}
+                      <td className="px-3 py-2">
+                        <div className="font-mono font-medium">{formatPricing(t)}</div>
+                        {formatInsurance(t) && (
+                          <div className="text-[10px] text-neutral-400">
+                            {formatInsurance(t)}
+                          </div>
+                        )}
                       </td>
                       <td className="px-3 py-2 text-neutral-500 text-xs">
                         {t.origin && t.destination ? (
@@ -519,4 +641,6 @@ export function SpecialTariffsTable({ initialEntities }: { initialEntities: Enti
     </div>
   );
 }
+
+
 
