@@ -35,6 +35,9 @@ interface AnalysisData {
   declaredValue: number | null;
   loadDescription: string | null;
   observations: string | null;
+  // Origen/Destino (para cotización)
+  origin: string | null;
+  destination: string | null;
 }
 
 interface FormData {
@@ -532,6 +535,9 @@ function NuevaRecepcionContent() {
         ...prev,
         deliveryNoteNumber: data!.deliveryNoteNumber || prev.deliveryNoteNumber,
         date: data!.date || prev.date,
+        // Origen/Destino
+        origin: data!.origin || prev.origin,
+        destination: data!.destination || prev.destination,
         // Carga
         packageQuantity: data!.packageQuantity?.toString() || prev.packageQuantity,
         weightKg: data!.weightKg?.toString() || prev.weightKg,

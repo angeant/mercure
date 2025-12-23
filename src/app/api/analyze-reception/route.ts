@@ -148,6 +148,14 @@ EXTRAE ESTOS DATOS ESPECÍFICOS:
 - Razón Social, CUIT, Dirección completa con localidad, Teléfono, Email
 - IMPORTANTE: Si el nombre coincide con un cliente registrado (aunque tenga variaciones como "SRL", "S.R.L.", "SA", etc.), usá EL NOMBRE EXACTO DEL CLIENTE REGISTRADO y devolvé su ID
 
+📍 ORIGEN Y DESTINO (para cotización):
+- ORIGEN: La LOCALIDAD/CIUDAD de donde SALE la mercadería (donde está el remitente)
+  * Buscar en la dirección del remitente
+  * Ejemplos: "Buenos Aires", "CABA", "Córdoba Capital", "Mendoza"
+- DESTINO: La LOCALIDAD/CIUDAD donde LLEGA la mercadería (donde está el destinatario)
+  * Buscar en recipientLocality o en la dirección del destinatario
+  * Ejemplos: "San Salvador de Jujuy", "Salta Capital", "Tucumán"
+
 Responde SOLO con este JSON (sin markdown, sin explicaciones):
 
 {
@@ -182,6 +190,8 @@ Responde SOLO con este JSON (sin markdown, sin explicaciones):
   "recipientLocality": "localidad/provincia",
   "recipientPhone": "teléfono",
   "recipientEmail": "email",
+  "origin": "localidad/ciudad de origen (de donde sale)",
+  "destination": "localidad/ciudad de destino (a donde llega)",
   "loadDescription": "descripción DETALLADA combinando remito + foto (productos, embalajes, estado, marcas)",
   "observations": "observaciones relevantes"
 }
