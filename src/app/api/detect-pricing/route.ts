@@ -345,7 +345,7 @@ async function buscarTarifa(
       if (tariff) {
         return { 
           tarifa: tariff, 
-          debug: `Encontrada: ${orig} -> ${dest}, ${tariff.weight_to_kg}kg = $${tariff.price} (${deliveryType}${tariff.includes_iva ? ', +IVA' : ''})` 
+          debug: `Encontrada: ${orig} -> ${dest}, ${tariff.weight_from_kg}-${tariff.weight_to_kg}kg = $${tariff.price} (${deliveryType}${tariff.includes_iva ? ', +IVA' : ''})` 
         };
       }
     }
@@ -368,7 +368,7 @@ async function buscarTarifa(
       if (tariff) {
         return { 
           tarifa: tariff, 
-          debug: `Encontrada (sin filtro delivery): ${orig} -> ${dest}, ${tariff.weight_to_kg}kg = $${tariff.price}` 
+          debug: `Encontrada (sin filtro delivery): ${orig} -> ${dest}, ${tariff.weight_from_kg}-${tariff.weight_to_kg}kg = $${tariff.price}` 
         };
       }
     }
