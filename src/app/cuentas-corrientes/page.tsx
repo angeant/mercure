@@ -18,22 +18,48 @@ interface ClientWithBalance {
 }
 
 async function getClientsWithBalance(): Promise<ClientWithBalance[]> {
-  // Obtener clientes con cuenta corriente (incluir saldo inicial)
+  // Obtener envíos pendientes de cobro (entregados pero no pagados)
+  // Status: delivered, en_destino, arrived = ya llegaron/entregaron, pendiente de cobro
+  const { data: shipments, error: shipmentsError } = await supabaseAdmin!
+    .schema('mercure').from('shipments')
+    .select('id, sender_id, quotation_id, status, declared_value, weight_kg')
+    .in('status', ['delivered', 'en_destino', 'arrived', 'rendida', 'entregado']);
+
+  if (shipmentsError) {
+    console.error('[CC] Error fetching shipments:', shipmentsError);
+  }
+
+  // Obtener IDs únicos de remitentes con envíos pendientes
+  const senderIdsWithShipments = [...new Set((shipments || []).map(s => s.sender_id).filter(Boolean))];
+  
+  // Obtener TODOS los clientes que tienen envíos pendientes O tienen payment_terms = cuenta_corriente
   const { data: entities } = await supabaseAdmin!
     .schema('mercure').from('entities')
     .select('id, legal_name, tax_id, address, phone, email, payment_terms, initial_balance')
-    .eq('payment_terms', 'cuenta_corriente')
+    .or(`payment_terms.eq.cuenta_corriente,id.in.(${senderIdsWithShipments.join(',') || '0'})`)
     .order('legal_name');
 
   if (!entities || entities.length === 0) {
     return [];
   }
 
-  // Obtener envíos rendidos por cliente (pendientes de facturar)
-  const { data: shipments } = await supabaseAdmin!
-    .schema('mercure').from('shipments')
-    .select('id, sender_id, declared_value')
-    .eq('status', 'rendida');
+  console.log('[CC Debug] Shipments:', shipments?.length || 0, '| Entities found:', entities.length);
+
+  // Obtener IDs de cotizaciones únicas
+  const quotationIds = [...new Set((shipments || []).map(s => s.quotation_id).filter(Boolean))];
+  
+  // Obtener precios de cotizaciones
+  let quotationsMap: Record<string, number> = {};
+  if (quotationIds.length > 0) {
+    const { data: quotations } = await supabaseAdmin!
+      .schema('mercure').from('quotations')
+      .select('id, total_price')
+      .in('id', quotationIds);
+    
+    if (quotations) {
+      quotationsMap = Object.fromEntries(quotations.map(q => [q.id, q.total_price || 0]));
+    }
+  }
 
   // Obtener última liquidación por cliente
   const { data: settlements } = await supabaseAdmin!
@@ -46,10 +72,24 @@ async function getClientsWithBalance(): Promise<ClientWithBalance[]> {
     const entityShipments = (shipments || []).filter(s => s.sender_id === entity.id);
     const pendingCount = entityShipments.length;
     
-    // Saldo de remitos = suma de (flete + seguro) de cada envío
+    // Saldo de remitos = suma de precios de cotización o fallback
     const shipmentsBalance = entityShipments.reduce((acc, s) => {
-      const value = s.declared_value || 0;
-      return acc + (value * 0.05) + (value * 0.008);
+      // Prioridad: 1. Cotización, 2. Cálculo básico por peso
+      let price = 0;
+      
+      if (s.quotation_id && quotationsMap[s.quotation_id]) {
+        price = quotationsMap[s.quotation_id];
+      } else if (s.weight_kg && s.weight_kg > 0) {
+        // Fallback: cálculo básico (tarifa promedio $500/kg + seguro 0.8%)
+        const baseFlete = Math.max(s.weight_kg * 500, 5000); // Mínimo $5000
+        const insuranceCost = (s.declared_value || 0) * 0.008;
+        price = baseFlete + insuranceCost;
+      } else if (s.declared_value && s.declared_value > 0) {
+        // Fallback 2: solo seguro si hay valor declarado
+        price = s.declared_value * 0.05; // 5% aproximado
+      }
+      
+      return acc + price;
     }, 0);
     
     // Saldo total = saldo inicial (histórico) + saldo de remitos nuevos

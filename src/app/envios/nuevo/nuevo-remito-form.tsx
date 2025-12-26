@@ -118,6 +118,7 @@ export function NuevoRemitoForm({ entities }: { entities: Entity[] }) {
     declared_value: '',
     freight_cost: '',
     insurance_cost: '',
+    pickup_fee: '', // Costo de retiro
     notes: '',
   });
 
@@ -218,6 +219,7 @@ export function NuevoRemitoForm({ entities }: { entities: Entity[] }) {
           declared_value: formData.declared_value ? parseFloat(formData.declared_value) : null,
           freight_cost: formData.freight_cost ? parseFloat(formData.freight_cost) : null,
           insurance_cost: formData.insurance_cost ? parseFloat(formData.insurance_cost) : null,
+          pickup_fee: formData.pickup_fee ? parseFloat(formData.pickup_fee) : null,
           notes: formData.notes || null,
           status: 'rendida', // Para que aparezca en cuenta corriente
         });
@@ -257,7 +259,8 @@ export function NuevoRemitoForm({ entities }: { entities: Entity[] }) {
   // Calcular totales mientras escribe
   const flete = parseFloat(formData.freight_cost) || 0;
   const seguro = parseFloat(formData.insurance_cost) || 0;
-  const subtotal = flete + seguro;
+  const retiro = parseFloat(formData.pickup_fee) || 0;
+  const subtotal = flete + seguro + retiro;
   const iva = subtotal * 0.21;
   const total = subtotal + iva;
 
@@ -446,7 +449,7 @@ export function NuevoRemitoForm({ entities }: { entities: Entity[] }) {
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-3 gap-4">
           <CurrencyInput
             name="freight_cost"
             value={formData.freight_cost}
@@ -459,13 +462,19 @@ export function NuevoRemitoForm({ entities }: { entities: Entity[] }) {
             onChange={handleChange}
             label="Seguro"
           />
+          <CurrencyInput
+            name="pickup_fee"
+            value={formData.pickup_fee}
+            onChange={handleChange}
+            label="Retiro"
+          />
         </div>
       </div>
 
       {/* Resumen de costos */}
-      {(flete > 0 || seguro > 0) && (
+      {(flete > 0 || seguro > 0 || retiro > 0) && (
         <div className="bg-neutral-50 rounded-lg p-4 border border-neutral-200">
-          <div className="grid grid-cols-4 gap-4 text-sm">
+          <div className="grid grid-cols-5 gap-4 text-sm">
             <div className="text-center">
               <div className="text-neutral-400 text-xs uppercase mb-1">Flete</div>
               <div className="font-mono font-medium">$ {formatCurrency(flete)}</div>
@@ -473,6 +482,10 @@ export function NuevoRemitoForm({ entities }: { entities: Entity[] }) {
             <div className="text-center">
               <div className="text-neutral-400 text-xs uppercase mb-1">Seguro</div>
               <div className="font-mono font-medium">$ {formatCurrency(seguro)}</div>
+            </div>
+            <div className="text-center">
+              <div className="text-neutral-400 text-xs uppercase mb-1">Retiro</div>
+              <div className="font-mono font-medium">$ {formatCurrency(retiro)}</div>
             </div>
             <div className="text-center">
               <div className="text-neutral-400 text-xs uppercase mb-1">IVA 21%</div>

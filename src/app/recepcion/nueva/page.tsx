@@ -65,6 +65,8 @@ interface FormData {
   // Condiciones de pago
   paidBy: 'origen' | 'destino'; // Pagadero por origen (remitente) o destino (destinatario)
   paymentTerms: string; // contado, cuenta_corriente
+  // Costos adicionales (manuales)
+  pickupFee: string; // Costo de retiro en origen
   // Extras
   loadDescription: string;
   observations: string;
@@ -289,6 +291,8 @@ function NuevaRecepcionContent() {
     // Condiciones de pago
     paidBy: 'destino', // Por defecto paga el destinatario
     paymentTerms: "contado",
+    // Costos adicionales
+    pickupFee: "", // Costo de retiro
     // Extras
     loadDescription: "",
     observations: "",
@@ -1426,6 +1430,36 @@ function NuevaRecepcionContent() {
               )}
 
               <div className="p-3 space-y-3">
+                {/* Costo de Retiro (manual) */}
+                <div className="flex items-center gap-4">
+                  <div className="flex-1">
+                    <Label className="text-xs mb-1 block">Retiro en origen (opcional)</Label>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-neutral-500">$</span>
+                      <Input
+                        name="pickupFee"
+                        type="number"
+                        value={formData.pickupFee}
+                        onChange={handleInputChange}
+                        className="h-8 text-sm w-32"
+                        placeholder="0"
+                        min="0"
+                        step="100"
+                      />
+                    </div>
+                    <p className="text-[10px] text-neutral-400 mt-1">Si se retiró la carga del depósito del cliente</p>
+                  </div>
+                  {/* Mostrar total con retiro */}
+                  {formData.pickupFee && parseFloat(formData.pickupFee) > 0 && calculatedPrice && (
+                    <div className="text-right">
+                      <div className="text-xs text-neutral-500">Total con retiro:</div>
+                      <div className="text-lg font-bold text-neutral-900">
+                        ${(calculatedPrice + parseFloat(formData.pickupFee)).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {/* Switch de quién paga */}
                 <div>
                   <Label className="text-xs mb-2 block">¿Quién paga el flete?</Label>

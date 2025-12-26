@@ -36,6 +36,7 @@ interface ReceptionData {
   observations: string;
   paidBy: 'origen' | 'destino';
   paymentTerms: 'contado' | 'cuenta_corriente';
+  pickupFee?: string; // Costo de retiro en origen (opcional)
 }
 
 interface EntityData {
@@ -222,6 +223,7 @@ export async function POST(request: NextRequest) {
         weight_kg: data.weightKg ? parseFloat(data.weightKg) : null,
         volume_m3: data.volumeM3 ? parseFloat(data.volumeM3) : null,
         declared_value: data.declaredValue ? parseFloat(data.declaredValue) : null,
+        pickup_fee: data.pickupFee ? parseFloat(data.pickupFee) : 0, // Costo de retiro
         paid_by: data.paidBy || 'destino',
         payment_terms: data.paymentTerms || 'contado',
         notes: data.observations?.trim() || null,
@@ -287,6 +289,10 @@ export async function POST(request: NextRequest) {
           console.log('[save-reception] Pricing result:', JSON.stringify(pricingResult, null, 2));
           
           if (pricing?.price && pricing.price > 0) {
+            // Calcular pickup_fee y total final
+            const pickupFee = data.pickupFee ? parseFloat(data.pickupFee) : 0;
+            const totalWithPickup = pricing.price + pickupFee;
+            
             // Guardar la cotización
             const { data: quotation, error: quotationError } = await mercure()
               .from('quotations')
@@ -304,7 +310,8 @@ export async function POST(request: NextRequest) {
                 base_price: pricing.breakdown?.flete_final || pricing.breakdown?.flete_lista || pricing.price,
                 insurance_value: declaredValue || null, // Valor declarado para el seguro
                 insurance_cost: pricing.breakdown?.seguro || 0,
-                total_price: pricing.price,
+                pickup_fee: pickupFee, // Costo de retiro
+                total_price: totalWithPickup, // Total incluyendo retiro
                 includes_iva: false,
                 status: 'confirmed',
                 source: 'reception',

@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     const { data, error } = await supabaseAdmin
       .schema('mercure')
       .from('quotations')
-      .select('total_price, base_price, insurance_cost')
+      .select('total_price, base_price, insurance_cost, pickup_fee')
       .eq('id', quotationId)
       .single();
 
@@ -60,6 +60,7 @@ export async function PUT(request: NextRequest) {
       weight_kg: updateData.weight_kg ? parseFloat(updateData.weight_kg) : 0,
       volume_m3: updateData.volume_m3 ? parseFloat(updateData.volume_m3) : null,
       declared_value: updateData.declared_value ? parseFloat(updateData.declared_value) : 0,
+      pickup_fee: updateData.pickup_fee ? parseFloat(updateData.pickup_fee) : 0,
       load_description: updateData.load_description || null,
       paid_by: updateData.paid_by || null,
       payment_terms: updateData.payment_terms || null,
@@ -79,6 +80,10 @@ export async function PUT(request: NextRequest) {
       const volumetricWeight = volumeM3 * 300;
       const chargeableWeight = newQuotation.breakdown?.peso_cobrado || Math.max(weightKg, volumetricWeight) || weightKg || 1;
       
+      // Include pickup_fee in total if provided
+      const pickupFee = updateData.pickup_fee ? parseFloat(updateData.pickup_fee) : 0;
+      const totalWithPickup = newQuotation.price + pickupFee;
+      
       const { data: newQuot, error: quotError } = await supabaseAdmin
         .schema('mercure')
         .from('quotations')
@@ -96,7 +101,8 @@ export async function PUT(request: NextRequest) {
           insurance_value: updateData.declared_value ? parseFloat(updateData.declared_value) : 0,
           base_price: newQuotation.isManual ? newQuotation.price : (newQuotation.breakdown?.flete_final || newQuotation.price),
           insurance_cost: newQuotation.isManual ? 0 : (newQuotation.breakdown?.seguro || 0),
-          total_price: newQuotation.price,
+          pickup_fee: pickupFee,
+          total_price: totalWithPickup,
           includes_iva: false,
           status: 'confirmed',
           source: newQuotation.isManual ? 'manual' : 'recotizacion',

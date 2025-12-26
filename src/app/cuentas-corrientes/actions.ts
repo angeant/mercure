@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 export async function getClientShipments(entityId: number) {
   if (!supabaseAdmin) throw new Error("No admin client");
   
+  // Obtener envíos pendientes de cobro (entregados pero no facturados)
   const { data: shipmentsData } = await supabaseAdmin
     .schema('mercure')
     .from('shipments')
@@ -16,45 +17,74 @@ export async function getClientShipments(entityId: number) {
       weight_kg,
       declared_value,
       quotation_id,
-      recipient:entities!recipient_id(legal_name)
+      recipient_id,
+      origin,
+      destination
     `)
     .eq('sender_id', entityId)
-    .eq('status', 'rendida')
+    .in('status', ['delivered', 'en_destino', 'arrived', 'rendida', 'entregado'])
     .order('created_at', { ascending: false });
+  
+  // Obtener nombres de destinatarios
+  const recipientIds = [...new Set((shipmentsData || []).map(s => s.recipient_id).filter(Boolean))];
+  let recipientsMap: Record<number, string> = {};
+  if (recipientIds.length > 0) {
+    const { data: recipients } = await supabaseAdmin
+      .schema('mercure')
+      .from('entities')
+      .select('id, legal_name')
+      .in('id', recipientIds);
+    if (recipients) {
+      recipientsMap = Object.fromEntries(recipients.map(r => [r.id, r.legal_name]));
+    }
+  }
 
-  // Cargar precios de cotizaciones asociadas
-  const mappedShipments = await Promise.all(
-    (shipmentsData || []).map(async (s) => {
-      const recipientData = s.recipient as { legal_name: string } | { legal_name: string }[] | null;
-      const recipient = Array.isArray(recipientData) ? recipientData[0] : recipientData;
-      const declaredValue = s.declared_value || 0;
-      
-      let calculatedAmount = 0;
-      if (s.quotation_id) {
-        const { data: quotation } = await supabaseAdmin!
-          .schema('mercure')
-          .from('quotations')
-          .select('total_price')
-          .eq('id', s.quotation_id)
-          .single();
-        calculatedAmount = quotation?.total_price || 0;
-      }
+  // Obtener precios de cotizaciones
+  const quotationIds = [...new Set((shipmentsData || []).map(s => s.quotation_id).filter(Boolean))];
+  let quotationsMap: Record<string, number> = {};
+  if (quotationIds.length > 0) {
+    const { data: quotations } = await supabaseAdmin
+      .schema('mercure')
+      .from('quotations')
+      .select('id, total_price')
+      .in('id', quotationIds);
+    if (quotations) {
+      quotationsMap = Object.fromEntries(quotations.map(q => [q.id, q.total_price || 0]));
+    }
+  }
 
-      return {
-        id: s.id,
-        delivery_note_number: s.delivery_note_number,
-        created_at: s.created_at,
-        recipient_name: recipient?.legal_name || '-',
-        origin: 'LANUS',
-        destination: 'SALTA',
-        package_quantity: s.package_quantity,
-        weight_kg: s.weight_kg,
-        declared_value: declaredValue,
-        calculated_amount: calculatedAmount,
-        quotation_id: s.quotation_id,
-      };
-    })
-  );
+  // Mapear envíos con datos
+  const mappedShipments = (shipmentsData || []).map((s) => {
+    const recipientName = s.recipient_id ? (recipientsMap[s.recipient_id] || '-') : '-';
+    
+    // Calcular monto: prioridad 1. cotización, 2. cálculo básico por peso
+    let calculatedAmount = 0;
+    if (s.quotation_id && quotationsMap[s.quotation_id]) {
+      calculatedAmount = quotationsMap[s.quotation_id];
+    } else if (s.weight_kg && s.weight_kg > 0) {
+      // Fallback: cálculo básico por peso
+      const baseFlete = Math.max(s.weight_kg * 500, 5000);
+      const insuranceCost = (s.declared_value || 0) * 0.008;
+      calculatedAmount = baseFlete + insuranceCost;
+    } else if (s.declared_value && s.declared_value > 0) {
+      // Fallback 2: solo si hay valor declarado
+      calculatedAmount = s.declared_value * 0.05;
+    }
+
+    return {
+      id: s.id,
+      delivery_note_number: s.delivery_note_number,
+      created_at: s.created_at,
+      recipient_name: recipientName,
+      origin: s.origin || 'Buenos Aires',
+      destination: s.destination || 'Jujuy',
+      package_quantity: s.package_quantity,
+      weight_kg: s.weight_kg,
+      declared_value: s.declared_value || 0,
+      calculated_amount: calculatedAmount,
+      quotation_id: s.quotation_id,
+    };
+  });
   
   return mappedShipments;
 }

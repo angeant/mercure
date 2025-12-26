@@ -21,6 +21,7 @@ interface ShipmentData {
   weight_kg: number;
   volume_m3: number | null;
   declared_value: number;
+  pickup_fee: number | null; // Costo de retiro
   load_description: string | null;
   paid_by: string | null;
   payment_terms: string | null;
@@ -36,6 +37,7 @@ interface QuotationData {
   total_price: number;
   base_price: number;
   insurance_cost: number;
+  pickup_fee: number;
 }
 
 interface EditShipmentFormProps {
@@ -146,6 +148,7 @@ export function EditShipmentForm({ shipment, entities }: EditShipmentFormProps) 
               total_price: Number(result.quotation.total_price),
               base_price: Number(result.quotation.base_price),
               insurance_cost: Number(result.quotation.insurance_cost),
+              pickup_fee: Number(result.quotation.pickup_fee) || 0,
             });
           }
         } catch (error) {
@@ -165,6 +168,7 @@ export function EditShipmentForm({ shipment, entities }: EditShipmentFormProps) 
     weight_kg: shipment.weight_kg?.toString() || '',
     volume_m3: shipment.volume_m3?.toString() || '',
     declared_value: shipment.declared_value?.toString() || '',
+    pickup_fee: shipment.pickup_fee?.toString() || '',
     load_description: shipment.load_description || '',
     paid_by: shipment.paid_by || 'destino',
     payment_terms: shipment.payment_terms || 'contado',
@@ -472,6 +476,20 @@ export function EditShipmentForm({ shipment, entities }: EditShipmentFormProps) 
               min="0"
             />
           </div>
+          <div>
+            <label className="block text-xs font-medium text-neutral-500 uppercase mb-1">Retiro ($)</label>
+            <input
+              type="number"
+              name="pickup_fee"
+              value={formData.pickup_fee}
+              onChange={handleChange}
+              step="100"
+              placeholder="0"
+              className="w-full h-9 px-3 text-sm border border-neutral-200 rounded focus:border-neutral-400 focus:ring-0"
+              min="0"
+            />
+            <span className="text-[10px] text-neutral-400">Costo de recolección en origen</span>
+          </div>
         </div>
 
         {/* Cotización */}
@@ -528,7 +546,7 @@ export function EditShipmentForm({ shipment, entities }: EditShipmentFormProps) 
               </p>
               {quotation && (
                 <p className="text-xs text-neutral-400">
-                  Flete: ${quotation.base_price.toLocaleString('es-AR')} + Seguro: ${quotation.insurance_cost.toLocaleString('es-AR')}
+                  Flete: ${quotation.base_price.toLocaleString('es-AR')} + Seguro: ${quotation.insurance_cost.toLocaleString('es-AR')}{quotation.pickup_fee > 0 && ` + Retiro: $${quotation.pickup_fee.toLocaleString('es-AR')}`}
                 </p>
               )}
             </div>
