@@ -18,14 +18,16 @@ async function getTrip(id: number) {
   }
   
   // Si tiene vehículo, obtenerlo por separado
-  let vehicle = null;
+  let vehicle: { identifier: string; tractor_license_plate: string } | undefined = undefined;
   if (trip.vehicle_id) {
     const { data: vehicleData } = await supabaseAdmin!
       .schema('mercure').from('vehicles')
       .select('identifier, tractor_license_plate')
       .eq('id', trip.vehicle_id)
       .single();
-    vehicle = vehicleData;
+    if (vehicleData) {
+      vehicle = vehicleData;
+    }
   }
   
   return {

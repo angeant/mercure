@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Navbar } from "@/components/layout/navbar";
 import { Loader2, Save, ArrowLeft, Truck, Package, MapPin, Building2, Calendar, DollarSign, Weight, Box, User, Home } from "lucide-react";
@@ -47,7 +47,7 @@ const DEPOSITOS = [
   'Depósito Salta',
 ];
 
-export default function NuevoViajePage() {
+function NuevoViajeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const tipoParam = searchParams.get('tipo');
@@ -685,3 +685,14 @@ export default function NuevoViajePage() {
   );
 }
 
+export default function NuevoViajePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-neutral-400" />
+      </div>
+    }>
+      <NuevoViajeContent />
+    </Suspense>
+  );
+}

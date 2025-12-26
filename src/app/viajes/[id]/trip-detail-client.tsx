@@ -32,8 +32,9 @@ interface Shipment {
   weight_kg: number | null;
   volume_m3: number | null;
   declared_value: number | null;
-  freight_cost: number | null;
-  insurance_cost: number | null;
+  freight_cost?: number | null;
+  insurance_cost?: number | null;
+  pickup_fee?: number | null;
   status: string;
   sender?: { id: number; legal_name: string } | null;
   recipient?: { id: number; legal_name: string } | null;
