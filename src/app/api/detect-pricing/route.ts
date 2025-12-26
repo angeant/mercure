@@ -199,15 +199,26 @@ export async function POST(request: NextRequest) {
       client = data;
     }
 
-    // Verificar términos comerciales
+    // Verificar términos comerciales y tarifas especiales
     let hasCommercialTerms = false;
+    let hasSpecialTariffs = false;
     if (client) {
+      // Check client_commercial_terms
       const { data: terms } = await mercure()
         .from('client_commercial_terms')
         .select('id')
         .eq('entity_id', client.id)
         .single();
       hasCommercialTerms = !!terms;
+      
+      // Check client_special_tariffs (tarifas especiales activas)
+      const { data: specialTariffs } = await mercure()
+        .from('client_special_tariffs')
+        .select('id')
+        .eq('entity_id', client.id)
+        .eq('is_active', true)
+        .limit(1);
+      hasSpecialTariffs = !!(specialTariffs && specialTariffs.length > 0);
     }
 
     // Input común para debug
@@ -219,8 +230,8 @@ export async function POST(request: NextRequest) {
       destination: actualDestination,
     };
 
-    // CAMINO A: Cliente Cuenta Corriente o con términos comerciales
-    if (client && (client.client_type === 'regular' || client.payment_terms === 'cuenta_corriente' || hasCommercialTerms)) {
+    // CAMINO A: Cliente Cuenta Corriente, con términos comerciales, o con tarifas especiales
+    if (client && (client.client_type === 'regular' || client.payment_terms === 'cuenta_corriente' || hasCommercialTerms || hasSpecialTariffs)) {
       const result = await handlePathA(client, { 
         packageQuantity, 
         weightKg: actualWeightKg, 
