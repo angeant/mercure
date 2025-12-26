@@ -14,7 +14,8 @@ import {
   Download, 
   History,
   Zap,
-  ArrowRight
+  ArrowRight,
+  Pencil
 } from "lucide-react";
 import Link from "next/link";
 import { useUser } from "@clerk/nextjs";
@@ -257,6 +258,7 @@ export function ClientDetail({ clientId, clientName, clientTaxId }: ClientDetail
                       <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Fecha</th>
                       <th className="px-3 py-2 text-left text-xs font-medium text-neutral-500 uppercase">Remitente</th>
                       <th className="px-3 py-2 text-right text-xs font-medium text-neutral-500 uppercase">Importe</th>
+                      <th className="px-3 py-2 w-10"></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -286,6 +288,16 @@ export function ClientDetail({ clientId, clientName, clientTaxId }: ClientDetail
                         </td>
                         <td className="px-3 py-2 text-right font-mono">
                           ${formatCurrency(shipment.calculated_amount)}
+                        </td>
+                        <td className="px-3 py-2">
+                          <Link
+                            href={`/envios/${shipment.id}/editar`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="p-1.5 hover:bg-neutral-200 rounded text-neutral-500 hover:text-neutral-700 inline-flex"
+                            title="Editar guía"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </Link>
                         </td>
                       </tr>
                     ))}
