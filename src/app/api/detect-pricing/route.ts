@@ -203,22 +203,26 @@ export async function POST(request: NextRequest) {
     let hasCommercialTerms = false;
     let hasSpecialTariffs = false;
     if (client) {
+      console.log('[detect-pricing] Client found:', client.id, client.legal_name);
+      
       // Check client_commercial_terms
-      const { data: terms } = await mercure()
+      const { data: terms, error: termsError } = await mercure()
         .from('client_commercial_terms')
         .select('id')
         .eq('entity_id', client.id)
         .single();
       hasCommercialTerms = !!terms;
+      console.log('[detect-pricing] Commercial terms:', hasCommercialTerms, termsError?.message || '');
       
       // Check client_special_tariffs (tarifas especiales activas)
-      const { data: specialTariffs } = await mercure()
+      const { data: specialTariffs, error: specialError } = await mercure()
         .from('client_special_tariffs')
-        .select('id')
+        .select('id, name, pricing_type')
         .eq('entity_id', client.id)
         .eq('is_active', true)
         .limit(1);
       hasSpecialTariffs = !!(specialTariffs && specialTariffs.length > 0);
+      console.log('[detect-pricing] Special tariffs:', hasSpecialTariffs, specialTariffs, specialError?.message || '');
     }
 
     // Input común para debug

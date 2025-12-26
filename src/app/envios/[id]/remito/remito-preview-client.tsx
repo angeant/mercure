@@ -1,7 +1,7 @@
 "use client";
 
 import { Printer, ArrowLeft } from "lucide-react";
-import { RemitoDocumentV2 } from "@/components/documents/remito-v2";
+import { RemitoDuplex } from "@/components/documents/remito-duplex";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
@@ -96,7 +96,7 @@ export function RemitoPreviewClient({ shipment }: RemitoPreviewClientProps) {
               <div>
                 <h1 className="text-lg font-medium text-neutral-900">Remito {remitoNumber}</h1>
                 <p className="text-xs text-neutral-500">
-                  {shipment.sender?.legal_name} → {shipment.recipient?.legal_name}
+                  {shipment.sender?.legal_name} → {shipment.recipient?.legal_name} · <span className="text-orange-600">Formato duplex (Original + Duplicado)</span>
                 </p>
               </div>
             </div>
@@ -114,24 +114,25 @@ export function RemitoPreviewClient({ shipment }: RemitoPreviewClientProps) {
         </div>
       </div>
 
-      {/* Preview Container */}
+      {/* Preview Container - Landscape A4 */}
       <div className="px-4 print:px-0 overflow-x-auto" suppressHydrationWarning>
         <div 
           className="bg-white shadow-lg mx-auto print:shadow-none print:mx-0 print:w-full border border-neutral-200 print:border-0"
           style={{ 
-            width: '210mm', 
-            minWidth: '210mm',
-            minHeight: '297mm',
+            width: '297mm', 
+            minWidth: '297mm',
+            height: '210mm',
+            minHeight: '210mm',
           }}
         >
-          <RemitoDocumentV2 shipment={shipment} />
+          <RemitoDuplex shipment={shipment} />
         </div>
       </div>
 
       <style jsx global>{`
         @media print {
           @page {
-            size: A4;
+            size: A4 landscape;
             margin: 0;
           }
           html, body {
@@ -139,7 +140,8 @@ export function RemitoPreviewClient({ shipment }: RemitoPreviewClientProps) {
             print-color-adjust: exact !important;
             margin: 0 !important;
             padding: 0 !important;
-            width: 210mm !important;
+            width: 297mm !important;
+            height: 210mm !important;
           }
           body {
             background: white !important;
@@ -152,4 +154,3 @@ export function RemitoPreviewClient({ shipment }: RemitoPreviewClientProps) {
     </>
   );
 }
-
