@@ -289,8 +289,7 @@ export function EditShipmentForm({ shipment, entities }: EditShipmentFormProps) 
       setMessage({ type: 'success', text: result.message });
       
       setTimeout(() => {
-        router.push('/recepcion');
-        router.refresh();
+        router.back();
       }, 1000);
     } catch (error) {
       console.error('Error eliminando:', error);
@@ -339,8 +338,7 @@ export function EditShipmentForm({ shipment, entities }: EditShipmentFormProps) 
       
       // Redirigir después de 1 segundo
       setTimeout(() => {
-        router.push('/recepcion');
-        router.refresh();
+        router.back();
       }, 1000);
 
     } catch (error) {
@@ -358,12 +356,13 @@ export function EditShipmentForm({ shipment, entities }: EditShipmentFormProps) 
       {/* Header */}
       <div className="flex items-center justify-between border-b border-neutral-200 pb-3 mb-4">
         <div className="flex items-center gap-3">
-          <Link 
-            href="/recepcion"
+          <button 
+            type="button"
+            onClick={() => router.back()}
             className="p-2 hover:bg-neutral-100 rounded text-neutral-600"
           >
             <ArrowLeft className="w-4 h-4" />
-          </Link>
+          </button>
           <div>
             <h1 className="text-lg font-medium text-neutral-900">Editar Envío</h1>
             <p className="text-xs text-neutral-500">Remito {remitoNumber}</p>
@@ -890,12 +889,13 @@ export function EditShipmentForm({ shipment, entities }: EditShipmentFormProps) 
 
         {/* Botones */}
         <div className="flex gap-3 pt-4 border-t border-neutral-200">
-          <Link 
-            href="/recepcion"
+          <button
+            type="button"
+            onClick={() => router.back()}
             className="h-9 px-4 text-sm border border-neutral-200 hover:bg-neutral-50 rounded flex items-center gap-2"
           >
             Cancelar
-          </Link>
+          </button>
           <button
             type="submit"
             disabled={isSubmitting}
