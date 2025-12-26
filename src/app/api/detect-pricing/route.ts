@@ -1091,14 +1091,26 @@ function calcularPrecioEspecial(
       const formulaStr = pv.formula || '';
       const kg = cargo.weightKg || 0;
       const m3 = cargo.volumeM3 || 0;
+      const minimoFormula = pv.minimo || 0; // Mínimo opcional en pricing_values
       try {
         // Parsear fórmula simple: soporta kg, m3, +, -, *, números
-        const resultado = evaluarFormulaSimple(formulaStr, kg, m3);
-        price = resultado;
-        breakdown.peso_kg = kg;
-        breakdown.volumen_m3 = m3;
-        breakdown.tarifa_especial = price;
-        formula = `TARIFA ESPECIAL "${specialTariff.name}": ${formulaStr.replace('kg', `${kg}`).replace('m3', `${m3}`)} = $${price.toLocaleString()}`;
+        const resultadoRaw = evaluarFormulaSimple(formulaStr, kg, m3);
+        // Si el resultado es negativo o menor al mínimo, usar la tarifa base
+        if (resultadoRaw <= 0 || (minimoFormula > 0 && resultadoRaw < minimoFormula)) {
+          // Fórmula dio negativo/bajo, usar tarifa base como fallback
+          price = Math.max(tarifaBase, minimoFormula);
+          breakdown.peso_kg = kg;
+          breakdown.volumen_m3 = m3;
+          breakdown.formula_resultado = resultadoRaw;
+          breakdown.tarifa_base_fallback = tarifaBase;
+          formula = `TARIFA ESPECIAL "${specialTariff.name}": ${formulaStr.replace('kg', `${kg}`).replace('m3', `${m3}`)} = $${resultadoRaw.toLocaleString()} (negativo/bajo) → usando tarifa base: $${price.toLocaleString()}`;
+        } else {
+          price = resultadoRaw;
+          breakdown.peso_kg = kg;
+          breakdown.volumen_m3 = m3;
+          breakdown.tarifa_especial = price;
+          formula = `TARIFA ESPECIAL "${specialTariff.name}": ${formulaStr.replace('kg', `${kg}`).replace('m3', `${m3}`)} = $${price.toLocaleString()}`;
+        }
       } catch (e) {
         price = tarifaBase;
         breakdown.tarifa_base = tarifaBase;
